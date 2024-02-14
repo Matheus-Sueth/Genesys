@@ -1,0 +1,21 @@
+inboundShortMessage:
+  name: name
+  description: description
+  division: Home
+  startUpRef: "/inboundShortMessage/states/state[Initial State_10]"
+  defaultLanguage: pt-br
+  supportedLanguages:
+    pt-br:
+      defaultLanguageSkill:
+        noValue: true
+  settingsErrorHandling:
+    errorHandling:
+      disconnect:
+        none: true
+  states:
+    - state:
+        name: Initial State
+        refId: Initial State_10
+        actions:
+          - disconnect:
+              name: Disconnect

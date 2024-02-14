@@ -1,0 +1,137 @@
+import os
+import re
+import json
+import yaml
+from dotenv import load_dotenv
+from .api import Genesys
+
+load_dotenv()
+
+
+class FileYaml:
+    def __init__(self, path_file: str) -> None:
+        self.path_file = path_file
+        with open(self.path_file, 'rb') as arq_file:
+            file = arq_file.read().decode('utf-8')
+        file_genesys = file.replace('\t', '')
+        self.json_file = json.loads(self.yaml_to_json(file_genesys))
+
+    def yaml_to_json(self, yaml_string: str) -> str:
+        data = yaml.safe_load(yaml_string)
+        return json.dumps(data, ensure_ascii=False, indent=2)
+    
+    def save_yaml_to_file(self, yaml_file_path: str) -> None:
+        with open(yaml_file_path, 'w', encoding='utf-8') as yaml_file:
+            yaml.dump(self.json_file, yaml_file, default_flow_style=False, allow_unicode=True)
+    
+
+class Archy:
+    description_export_flow = {
+    0: "Sucesso",
+    100: "the flow named ({flow_name}) of type ({flow_type}) does not exist.",
+    101: "Architect Scripting errors will be listed above.",
+    106: "no value specified for the ({flow_name}) parameter",
+    109: "the export file at ({flow_name}) exists and will not be overwritten."
+    }
+    description_publish_flow = {
+    0: "Sucesso",
+    100: "the flow called ({flow_name}) of type ({flow_type}) has a schema error: ({error}).",
+    123: "the flow called ({flow_name}) of type ({flow_type}) has a validation error: ({error})."
+    }
+    padrao = re.compile(r'_v\d+-\d+\.yaml$')
+
+    DADOS = json.loads(os.environ.get('DADOS'))
+
+    def __init__(self, org: str) -> None:
+        if org not in self.DADOS.keys():
+            raise ValueError('Organização Desconhecida')
+        self.LOCATION = self.DADOS[org]['URL_AUTH']
+        self.CLIENT_ID = self.DADOS[org]['CLIENT_ID']
+        self.CLIENT_SECRET = self.DADOS[org]['CLIENT_SECRET']
+        self.api = Genesys(org)
+
+    def verificar_flow_prd(self):
+        ivrs = {}
+
+        for ivr_id in ivrs.keys():
+            ivr = self.api.get_ivr(ivr_id)
+            flow_id = ivr['openHoursFlow']['id']
+            flow_name = ivr['openHoursFlow']['name']
+            print(f'{flow_id=}\n{flow_name=}')
+        
+    def __new__(self, *args):
+        if not hasattr(self, 'instance'):
+            self.instance = super(Archy, self).__new__(self)
+        return self.instance
+
+    def get_file_flow(flow_name: str, flow_version: str, output_dir: str):
+        arquivos = os.listdir(os.path.abspath(f'{output_dir}/'))
+        if flow_version == 'latest':
+            arquivos = os.listdir(os.path.abspath(f'{output_dir}/'))
+            flow_files = [arquivo for arquivo in arquivos if arquivo.startswith(flow_name)].sort()
+        else:
+            flow_files = [arquivo for arquivo in arquivos if flow_name in arquivo and flow_version in arquivo]# Outra solução: list(filter(lambda arquivo: flow_name in arquivo and flow_version in arquivo,arquivos))
+        if len(flow_files) == 0:
+            raise ValueError("No flow filess")
+        else:
+            caminho_file = os.path.join(output_dir, flow_files[-1])
+
+    def export_flow(self, flow_name: str, flow_type: str = 'inboundcall', flow_version: str = 'latest', output_dir: str = 'flows'):
+        status = os.system(f'archy export --flowName "{flow_name}" --flowType {flow_type} --flowVersion {flow_version} --outputDir "{output_dir}" --exportType yaml --authTokenIsClientCredentials true --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
+        try:
+            flow_version = flow_version.replace(".","-")
+            arquivos = os.listdir(os.path.abspath(f'{output_dir}/'))
+            if status == 109:
+                if flow_version == 'latest':
+                    arquivos = os.listdir(os.path.abspath(f'{output_dir}/'))
+                    flow_files = [arquivo for arquivo in arquivos if arquivo.startswith(flow_name)] 
+                else:
+                    flow_files = [arquivo for arquivo in arquivos if flow_name in arquivo and flow_version in arquivo]# Outra solução: list(filter(lambda arquivo: flow_name in arquivo and flow_version in arquivo,arquivos))
+                if len(flow_files) == 0:
+                    raise ValueError("No flow filess")
+                else:
+                    caminho_file = os.path.join(output_dir, flow_files[-1])
+            else:
+                datas_criacao = {}
+                for arquivo in arquivos:
+                    datas_criacao[arquivo] = os.path.getctime(os.path.abspath(os.path.join(output_dir, arquivo))) 
+                arquivos_ordenados = sorted(datas_criacao.keys(), key=lambda x: datas_criacao[x])
+                caminho_file = os.path.join(output_dir, arquivos_ordenados[-1])
+            file_flow = FileYaml(os.path.abspath(caminho_file))
+        except Exception as error:
+            print(f'{error=}')
+            file_flow = None
+        finally:
+            return (status, self.description_export_flow[status].format(flow_name=flow_name, flow_type=flow_type), file_flow)
+    
+    def publish_flow(self, flow_file):
+        error = None
+        file_flow = FileYaml(flow_file)
+        flow_type = list(file_flow.json_file.keys())[0]
+        flow_name = file_flow.json_file[flow_type]['name']
+        status = os.system(f'archy publish --file "{flow_file}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
+        try:
+            assert status == 0
+        except Exception as error:
+            print(f'{error=}')
+        finally:
+            return (status, self.description_publish_flow[status].format(flow_name=flow_name, flow_type=flow_type, error=error), file_flow)
+        
+    def publish_flow_empty(self, flow_file_name_2, description='Fluxo_Vazio'):
+        flow_file_name = r''
+        file_flow = FileYaml(flow_file_name)
+        file_flow_2 = FileYaml(flow_file_name_2)
+        flow_name =  file_flow_2.json_file['inboundCall']['name'] 
+        file_flow.json_file['inboundCall']['name'] = flow_name
+        file_flow.json_file['inboundCall']['description'] = description
+        file_flow.save_yaml_to_file(flow_file_name)
+        status = os.system(f'archy publish --file {flow_file_name} --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
+        try:
+            assert status == 0
+        except Exception as error:
+            print(f'{error=}')
+        finally:
+            return (status, flow_file_name_2, flow_name)
+ 
+
+
