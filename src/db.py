@@ -66,4 +66,19 @@ class Database:
     def delete_data_flow(self, condition: str) -> None:
         self.cursor.execute(f"DELETE FROM data_flow {condition}")
 
-database_mutant = Database('')
+    @db_connection    
+    def insert_into_data_action(self, mutant_id: int, name: str, description: str, integrationId: str, category: str, properties_output:str, properties_input:str, request_url:str, request_type:str, request_headers:str, request_body:str, response:str, flow_id: str, flow_deleted: str, ura: str, state: str) -> None:
+        self.cursor.execute(f"INSERT INTO data_action VALUES ('{mutant_id}', {name}', {description}', {integrationId}', {category}', {properties_output}', {properties_input}', {request_url}', {request_type}', {request_headers}', {request_body}', {response}', {flow_id}', {flow_deleted}', '{ura}', '{state}')")
+
+    @db_connection
+    def select_data_action(self, colunas: str = '*', condition: str = '') -> list:
+        result = self.cursor.execute(f"SELECT {colunas} FROM data_action {condition}")
+        return result.fetchall()
+
+    @db_connection    
+    def update_data_action(self, data: str, condition: str) -> None:
+        self.cursor.execute(f"UPDATE data_action SET {data} {condition}")
+
+    @db_connection    
+    def delete_data_action(self, condition: str) -> None:
+        self.cursor.execute(f"DELETE FROM data_action {condition}")

@@ -14,7 +14,12 @@ class FileYaml:
         with open(self.path_file, 'rb') as arq_file:
             file = arq_file.read().decode('utf-8')
         file_genesys = file.replace('\t', '')
+        self.file_genesys_txt = file_genesys
         self.json_file = json.loads(self.yaml_to_json(file_genesys))
+
+    def trocar_dados(self, variavel_antiga: str, varivel_nova: str) -> None:
+        self.file_genesys_txt = self.file_genesys_txt.replace(variavel_antiga, varivel_nova)
+        self.json_file = json.loads(self.yaml_to_json(self.file_genesys_txt))
 
     def yaml_to_json(self, yaml_string: str) -> str:
         data = yaml.safe_load(yaml_string)
@@ -36,6 +41,7 @@ class Archy:
     description_publish_flow = {
     0: "Sucesso",
     100: "the flow called ({flow_name}) of type ({flow_type}) has a schema error: ({error}).",
+    101: "Architect Scripting errors will be listed above.",
     123: "the flow called ({flow_name}) of type ({flow_type}) has a validation error: ({error})."
     }
     padrao = re.compile(r'_v\d+-\d+\.yaml$')
@@ -56,7 +62,7 @@ class Archy:
         return self.instance
     
     def verificar_flow_prd(self, flow_name_or_id: str):
-        ivr_objects = self.api.get_architect_ivrs()
+        ivr_objects = self.api.architect_api.get_architect_ivrs()
         for ivr in ivr_objects.entities:
             flow_id = ivr.open_hours_flow.id
             flow_name = ivr.open_hours_flow.name
@@ -114,7 +120,7 @@ class Archy:
             flow_name = file_flow.json_file[flow_type]['name']
             if self.verificar_flow_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
-            status = os.system(f'archy publish --file "{flow_file}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
+            status = os.system(fr'C:\Users\matheus.mendonca\archy\archy publish --file "{flow_file}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
             assert status == 0
         except Exception as error:
             print(f'{error=}')
@@ -123,7 +129,7 @@ class Archy:
         
     def publish_flow_empty(self, flow_file_name_2, description='Fluxo_Vazio'):
         try:
-            flow_file_name = r''
+            flow_file_name = r'C:\Users\matheus.mendonca\AppData\Local\Programs\Python\Python312\Lib\Genesys\inbound_call_start.yaml'
             file_flow = FileYaml(flow_file_name)
             file_flow_2 = FileYaml(flow_file_name_2)
             flow_name =  file_flow_2.json_file['inboundCall']['name'] 

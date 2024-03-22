@@ -14,6 +14,7 @@ setup(
         'python-dotenv',
         'PyYAML',
         'requests',
+        'PureCloudPlatformClientV2'
     ],
     classifiers=[
         'Programming Language :: Python :: 3',
