@@ -1,14 +1,15 @@
 import requests
 import os
 import json
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 import PureCloudPlatformClientV2
 
-load_dotenv()
+
+vars_dotenv = dotenv_values(os.environ.get('DADOS'))
 
 
 class Genesys:
-    DADOS = json.loads(os.environ.get('DADOS'))
+    DADOS = json.loads(vars_dotenv.get('DADOS'))
 
     def __init__(self, org: str) -> None:
         if org not in self.DADOS.keys():
