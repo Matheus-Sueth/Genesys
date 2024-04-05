@@ -3,7 +3,7 @@ import os
 import re
 import json
 import yaml
-from Genesys.src.api import Genesys
+from src.api import Genesys
 from dataclasses import dataclass
 from typing import Optional
 
