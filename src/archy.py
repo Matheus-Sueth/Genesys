@@ -264,6 +264,7 @@ class Archy:
         try:
             status, error = None, None
             flow_file_name = os.path.abspath('./inbound_call_start.yaml')
+            print(flow_file_name)
             file_flow = FileYaml(flow_file_name)
             if self.verificar_flow_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
