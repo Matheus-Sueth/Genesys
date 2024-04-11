@@ -246,7 +246,7 @@ class Archy:
     
     def publish_flow(self, flow_file):
         try:
-            error = None
+            status, error = None, None
             file_flow = FileYaml(flow_file)
             flow_name = file_flow.json_file[file_flow.flow_type]['name']
             if self.verificar_flow_prd(flow_name):
@@ -262,6 +262,7 @@ class Archy:
         
     def publish_flow_empty(self, flow_name, description='Fluxo_Vazio'):
         try:
+            status, error = None, None
             flow_file_name = os.path.abspath('./inbound_call_start.yaml')
             file_flow = FileYaml(flow_file_name)
             if self.verificar_flow_prd(flow_name):
