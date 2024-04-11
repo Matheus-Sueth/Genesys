@@ -252,7 +252,7 @@ class Archy:
             if self.verificar_flow_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
             flows_dependencies = file_flow.get_flows_dependencies()
-            [self.publish_flow_empty(flow_name) for flow_name in flows_dependencies] 
+            [self.publish_flow_empty(flow_name_dependencie) for flow_name_dependencie in flows_dependencies if self.api.architect_api.get_flows(name=flow_name_dependencie).total != 0] 
             status = os.system(fr'archy publish --file "{flow_file}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
             assert status == 0
         except Exception as error:
