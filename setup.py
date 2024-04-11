@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='Genesys',
-    version='1.4.2',
+    version='1.4.3',
     packages=find_packages(),
     author='Matheus Almeida Santos Mendonça',
     author_email='matheuzengenharia@gmail.com',

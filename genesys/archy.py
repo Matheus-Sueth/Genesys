@@ -3,7 +3,7 @@ import os
 import re
 import json
 import yaml
-from src.api import Genesys
+from genesys.api import Genesys
 from dataclasses import dataclass
 from typing import Optional
 
@@ -263,7 +263,7 @@ class Archy:
     def publish_flow_empty(self, flow_name, description='Fluxo_Vazio'):
         try:
             status, error = None, None
-            flow_file_name = os.path.abspath('Genesys\inbound_call_start.yaml')
+            flow_file_name = os.path.abspath('inbound_call_start.yaml')
             print(flow_file_name)
             file_flow = FileYaml(flow_file_name)
             if self.verificar_flow_prd(flow_name):

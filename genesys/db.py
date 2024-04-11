@@ -1,4 +1,34 @@
+from __future__ import annotations
 import sqlite3
+from dataclasses import dataclass
+
+
+@dataclass
+class RelacaoAPI:
+    id: int
+    mutant_id: int
+    id_hml: int
+    id_prd: int
+
+
+@dataclass
+class DataScript:
+    script_point: str
+    mutant_id: int
+    name: str
+    state_or_task: str
+    update_data_name: str
+    name_variable: str
+
+
+@dataclass
+class Mutant:
+    id: int
+    cliente: str
+    qtd_uras: int
+    qtd_bots: int
+    qtd_webchat: int
+
 
 def db_connection(func):
     def wrapper(self, *args, **kwargs):
