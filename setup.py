@@ -2,8 +2,9 @@ from setuptools import setup, find_packages
 
 setup(
     name='Genesys',
-    version='1.4.3',
+    version='1.4.4',
     packages=find_packages(),
+    package_data={'': ['*.yaml']},
     author='Matheus Almeida Santos Mendonça',
     author_email='matheuzengenharia@gmail.com',
     description='Uma ferramenta para gerenciar aplicação do Archy, as APIs do Genesys Cloud',
