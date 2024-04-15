@@ -1,6 +1,6 @@
 inboundCall:
-  name: name
-  description: description
+  name: HML_IVR_Qualicorp_v39_Modulo5_Finalizacao_Fluxos
+  description: Fluxo_Vazio
   division: Home
   startUpRef: "/inboundCall/tasks/task[New Task 1_12]"
   defaultLanguage: pt-br

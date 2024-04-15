@@ -1,6 +1,7 @@
 import requests
 import os
 import json
+import re
 from dotenv import dotenv_values
 import PureCloudPlatformClientV2
 
@@ -58,3 +59,14 @@ class Genesys:
             return response.json()
         except Exception as error:
             raise Exception(f'Falha na chamada(post_architect_prompt_upload({upload_url=}, {file_name=}, {file_path=}))\n{error=}')
+
+    def get_version_flow_final(self, flow_name) -> int:
+        fluxos = []
+        page_number = 1
+        while True:
+            dados = self.architect_api.get_flows(name=flow_name+'*', page_number=page_number)
+            if len(fluxos) >= dados.total:
+                break
+            fluxos.extend([re.search(r'v(\d+)', fluxo.name) for fluxo in dados.entities])
+            page_number += 1
+        return max([int(match.group(1)) for match in fluxos])

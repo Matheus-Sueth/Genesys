@@ -4,9 +4,10 @@ import re
 import json
 import yaml
 from genesys.api import Genesys
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from typing import Optional
 import pkg_resources
+import subprocess
 
 
 @dataclass
@@ -41,29 +42,39 @@ class FileYaml:
         self.path_file = path_file
         with open(self.path_file, 'rb') as arq_file:
             file = arq_file.read().decode('utf-8')
-        file_genesys = file.replace('\t', '')
-        self.file_genesys_txt = file_genesys
-        self.json_file = json.loads(self.yaml_to_json(file_genesys))
+        self.file_genesys_txt = file.replace('\t', '')
+        self.json_file = json.loads(self.yaml_to_json())
+        self.auxiliar = json.loads(self.yaml_to_json())
+        self.definir_flow()
+
+    def definir_flow(self):
         self.flow_type = list(self.json_file.keys())[0]
         if self.flow_type == 'inboundCall':
             tasks = [Task(**task['task']) for task in self.json_file[self.flow_type]['tasks']]
-            aux = self.json_file
-            aux[self.flow_type]['tasks'] = tasks
-            self.flow = InboundCall(**aux[self.flow_type])
+            del self.auxiliar[self.flow_type]['tasks']
+            self.flow = InboundCall(**self.auxiliar[self.flow_type], tasks=tasks)
         else:
             self.flow = None
 
     def trocar_dados(self, variavel_antiga: str, varivel_nova: str) -> None:
         self.file_genesys_txt = self.file_genesys_txt.replace(variavel_antiga, varivel_nova)
-        self.json_file = json.loads(self.yaml_to_json(self.file_genesys_txt))
+        self.json_file = json.loads(self.yaml_to_json())
+        self.auxiliar = json.loads(self.yaml_to_json())
+        self.definir_flow()
 
-    def yaml_to_json(self, yaml_string: str) -> str:
-        data = yaml.safe_load(yaml_string)
+    def yaml_to_json(self) -> str:
+        data = yaml.safe_load(self.file_genesys_txt)
         return json.dumps(data, ensure_ascii=False, indent=2)
     
-    def save_yaml_to_file(self, yaml_file_path: str) -> None:
-        with open(yaml_file_path, 'w', encoding='utf-8') as yaml_file:
-            yaml.dump(self.json_file, yaml_file, default_flow_style=False, allow_unicode=True)
+    def save_yaml_to_file(self) -> FileYaml:
+        if self.flow_type == 'inboundCall':
+            tasks = [{'task':asdict(task)} for task in self.flow.tasks]
+            data = {self.flow_type: asdict(self.flow)}
+            data[self.flow_type]['tasks'] = tasks
+        
+        with open(self.path_file, 'w', encoding='utf-8') as yaml_file:
+            yaml.dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
+        return FileYaml(self.path_file)
 
     def quebrar_dicionario_transfer_to_flow(self, action, lista: list) -> list:
         try:
@@ -150,15 +161,21 @@ class FileYaml:
             return lista
         except Exception as erro:
             raise Exception(f'Ocorreu um erro: {erro}\nAction: {action}')
-
-    def get_flows_dependencies(self) -> list:
-        flows = []
+        
+    def get_dependencies(self, type_action: str) -> list:
+        dados = []
         if self.flow_type == 'inboundCall':
             for task in self.flow.tasks:
                 for action in task.actions:
-                    result = self.quebrar_dicionario_transfer_to_flow(action, list())
-                    flows.extend(result)
-        return sorted(list(set(flows)))
+                    match type_action:
+                        case 'flows':
+                            result = self.quebrar_dicionario_transfer_to_flow(action, list())
+                        case 'data_actions':
+                            result = self.quebrar_dicionario_call_data(action, list())
+                        case _:
+                            pass
+                    dados.extend(result)
+        return sorted(list(set(dados)))
 
 
 class Archy:
@@ -252,7 +269,7 @@ class Archy:
             flow_name = file_flow.json_file[file_flow.flow_type]['name']
             if self.verificar_flow_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
-            flows_dependencies = file_flow.get_flows_dependencies()
+            flows_dependencies = file_flow.get_dependencies('flows')
             [self.publish_flow_empty(flow_name_dependencie) for flow_name_dependencie in flows_dependencies if self.api.architect_api.get_flows(name=flow_name_dependencie).total == 0] 
             status = os.system(fr'archy publish --file "{flow_file}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
             assert status == 0
@@ -270,10 +287,35 @@ class Archy:
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
             file_flow.json_file['inboundCall']['name'] = flow_name
             file_flow.json_file['inboundCall']['description'] = description
-            file_flow.save_yaml_to_file(flow_file_name)
-            status = os.system(f'archy publish --file {flow_file_name} --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
+            file_flow.save_yaml_to_file()
+            status = os.system(f'archy publish --file "{flow_file_name}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
             assert status == 0
         except Exception as error:
             print(f'{error=}')
         finally:
             return (status, self.description_publish_flow[status].format(flow_name=flow_name, error=error), file_flow)
+        
+    def publish_flow_empty_subprocess(self, flow_name, description='Fluxo_Vazio'):
+        flow_file_name = pkg_resources.resource_filename('genesys', 'inbound_call_start.yaml')
+        file_flow = FileYaml(flow_file_name)
+        if self.verificar_flow_prd(flow_name):
+            raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
+        file_flow.json_file['inboundCall']['name'] = flow_name
+        file_flow.json_file['inboundCall']['description'] = description
+        file_flow.save_yaml_to_file()
+
+        cmd = f'archy publish --file "{flow_file_name}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}'
+        results, error = subprocess.Popen([r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe', "-Command", cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True).communicate()
+        dados = results.decode()
+        lista_dados = [dado.split(':') for dado in dados.split('\n') if dado.strip() != "" and ':' in dado]
+        dict_dados = {}
+        for dado in lista_dados:
+            print(dado)
+            chave = dado[0].strip()
+            valor = ':'.join(dado[1:])
+            dict_dados[chave] = valor
+        #dict_dados = {dados[0].strip(): dados[1].strip() for dados in lista_dados if len(lista_dados) == 2}
+        print(f"{dict_dados=}")
+        if error:
+            print(f"{error.decode()=}")
+            exit()
