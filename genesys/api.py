@@ -29,6 +29,7 @@ class Genesys:
         self.integrations_api = PureCloudPlatformClientV2.IntegrationsApi(self.client_api)
         self.objects_api = PureCloudPlatformClientV2.ObjectsApi(self.client_api)
         self.routing_api = PureCloudPlatformClientV2.RoutingApi(self.client_api)
+        self.users_api = PureCloudPlatformClientV2.UsersApi(self.client_api)
                 
     def __new__(self, *args):
         if not hasattr(self, 'instance'):

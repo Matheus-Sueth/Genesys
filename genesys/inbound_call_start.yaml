@@ -1,27 +1,11 @@
 inboundCall:
-  name: HML_IVR_Qualicorp_v39_Modulo5_Finalizacao_Fluxos
-  description: Fluxo_Vazio
-  division: Home
-  startUpRef: "/inboundCall/tasks/task[New Task 1_12]"
   defaultLanguage: pt-br
-  supportedLanguages:
-    pt-br:
-      defaultLanguageSkill:
-        noValue: true
-      textToSpeech:
-        defaultEngine:
-          voice: Viviane
+  description: teste_description
+  division: Home
   initialGreeting:
     exp: AudioPlaybackOptions(ToAudioBlank(100), true)
+  name: teste
   settingsActionDefaults:
-    playAudioOnSilence:
-      timeout:
-        lit:
-          seconds: 40
-    detectSilence:
-      timeout:
-        lit:
-          seconds: 40
     callData:
       processingPrompt:
         noValue: true
@@ -29,23 +13,31 @@ inboundCall:
       noEntryTimeout:
         lit:
           seconds: 5
+    detectSilence:
+      timeout:
+        lit:
+          seconds: 40
     dialByExtension:
       interDigitTimeout:
         lit:
           seconds: 6
-    transferToUser:
+    playAudioOnSilence:
+      timeout:
+        lit:
+          seconds: 40
+    transferToFlowSecure:
+      connectTimeout:
+        lit:
+          seconds: 15
+    transferToGroup:
       connectTimeout:
         noValue: true
     transferToNumber:
       connectTimeout:
         noValue: true
-    transferToGroup:
+    transferToUser:
       connectTimeout:
         noValue: true
-    transferToFlowSecure:
-      connectTimeout:
-        lit:
-          seconds: 15
   settingsErrorHandling:
     errorHandling:
       disconnect:
@@ -66,9 +58,11 @@ inboundCall:
   settingsPrompts:
     ensureAudioInPrompts: false
     promptMediaToValidate:
-      - mediaType: audio
-      - mediaType: tts
+    - mediaType: audio
+    - mediaType: tts
   settingsSpeechRec:
+    asrCompanyDir: none
+    asrEnabledOnFlow: true
     completeMatchTimeout:
       lit:
         ms: 100
@@ -80,13 +74,19 @@ inboundCall:
         seconds: 20
     minConfidenceLevel:
       lit: 50
-    asrCompanyDir: none
-    asrEnabledOnFlow: true
-    suppressRecording: true
+    suppressRecording: false
+  startUpRef: /inboundCall/tasks/task[New Task 1_12]
+  supportedLanguages:
+    pt-br:
+      defaultLanguageSkill:
+        noValue: true
+      textToSpeech:
+        defaultEngine:
+          voice: Viviane
   tasks:
-    - task:
-        name: New Task 1
-        refId: New Task 1_12
-        actions:
-          - disconnect:
-              name: Disconnect
+  - task:
+      actions:
+      - disconnect:
+          name: Disconnect
+      name: New Task 1
+      refId: New Task 1_12

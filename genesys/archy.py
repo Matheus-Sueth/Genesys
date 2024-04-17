@@ -4,37 +4,9 @@ import re
 import json
 import yaml
 from genesys.api import Genesys
-from dataclasses import dataclass, asdict
-from typing import Optional
 import pkg_resources
 import subprocess
-
-
-@dataclass
-class Task:
-    name: str
-    refId: str
-    variables: Optional[dict] = None
-    actions: Optional[list] = None
-
-
-@dataclass
-class InboundCall:
-    name: str
-    description: str
-    division: str
-    startUpRef: str
-    initialGreeting: dict
-    defaultLanguage: str
-    supportedLanguages: dict
-    settingsActionDefaults: dict
-    settingsErrorHandling: dict
-    settingsMenu: dict
-    settingsPrompts: dict
-    settingsSpeechRec: dict
-    variables: Optional[dict] = None
-    tasks: Optional[list[Task]] = None
-    menus: Optional[list] = None
+import genesys.type_flows.flows as tf_flow
 
 
 class FileYaml:
@@ -50,9 +22,15 @@ class FileYaml:
     def definir_flow(self):
         self.flow_type = list(self.json_file.keys())[0]
         if self.flow_type == 'inboundCall':
-            tasks = [Task(**task['task']) for task in self.json_file[self.flow_type]['tasks']]
+            tasks = [tf_flow.Task(**task['task']) for task in self.json_file[self.flow_type]['tasks']]
             del self.auxiliar[self.flow_type]['tasks']
-            self.flow = InboundCall(**self.auxiliar[self.flow_type], tasks=tasks)
+            self.flow = tf_flow.InboundCall(**self.auxiliar[self.flow_type], tasks=tasks)
+        elif self.flow_type == 'inboundShortMessage':
+            states = [tf_flow.Task(**state['state']) for state in self.json_file[self.flow_type]['states']]
+            tasks = [tf_flow.Task(**task['task']) for task in self.json_file[self.flow_type]['tasks']]
+            del self.auxiliar[self.flow_type]['tasks']
+            del self.auxiliar[self.flow_type]['states']
+            self.flow = tf_flow.InboundShortMessage(**self.auxiliar[self.flow_type], states=states, tasks=tasks)
         else:
             self.flow = None
 
@@ -66,116 +44,10 @@ class FileYaml:
         data = yaml.safe_load(self.file_genesys_txt)
         return json.dumps(data, ensure_ascii=False, indent=2)
     
-    def save_yaml_to_file(self) -> FileYaml:
-        if self.flow_type == 'inboundCall':
-            tasks = [{'task':asdict(task)} for task in self.flow.tasks]
-            data = {self.flow_type: asdict(self.flow)}
-            data[self.flow_type]['tasks'] = tasks
-        
+    def save_yaml_to_file(self) -> FileYaml:        
         with open(self.path_file, 'w', encoding='utf-8') as yaml_file:
-            yaml.dump(data, yaml_file, default_flow_style=False, allow_unicode=True)
+            yaml.dump(self.flow.class_asdict(), yaml_file, default_flow_style=False, allow_unicode=True)
         return FileYaml(self.path_file)
-
-    def quebrar_dicionario_transfer_to_flow(self, action, lista: list) -> list:
-        try:
-            for chave, valor in action.items():
-                match chave:
-                    case 'callCommonModule':
-                        lista.append(list(valor['commonModule'].keys())[0])
-                        continue
-                    case 'transferToFlow':
-                        lista.append(valor['targetFlow']['name'])            
-                    case 'decision':
-                        if valor.get('outputs'):
-                            for saidas in valor['outputs'].values():
-                                for action in saidas['actions']:
-                                    self.quebrar_dicionario_transfer_to_flow(action, lista)
-                    case 'switch':
-                        for case in valor['evaluate']['firstTrue']['cases']:
-                            for action in case['case']['actions']:
-                                self.quebrar_dicionario_transfer_to_flow(action, lista)
-                        else:
-                            if valor['evaluate']['firstTrue'].get('default'):
-                                for action in valor['evaluate']['firstTrue']['default']['actions']:
-                                    self.quebrar_dicionario_transfer_to_flow(action, lista)
-                    case 'collectInput':
-                        if valor.get('outputs'):
-                            for saidas in valor['outputs'].values():
-                                for action in saidas['actions']:
-                                    self.quebrar_dicionario_transfer_to_flow(action, lista)
-                    case 'callData':
-                        if valor.get('outputs'):
-                            for saidas in valor['outputs'].values():
-                                for action in saidas['actions']:
-                                    self.quebrar_dicionario_transfer_to_flow(action, lista)
-                    case 'loop':
-                        if valor.get('outputs'):
-                            for action in valor['outputs']['loop']['actions']:
-                                self.quebrar_dicionario_transfer_to_flow(action, lista)
-                    case 'setParticipantData' | 'jumpToTask' | 'updateData' | 'playAudio' | 'disconnect' | 'getParticipantData' | 'setWhisperAudio' | 'flushAudio' | 'detectSilence' | 'playAudioOnSilence' | 'setSecuredData' | 'getSecuredData' | 'encryptData' | 'decryptData' | 'setUUIData' | 'setExternalTag' | 'getSIPHeaders' | 'getRawSIPHeaders' | 'dataTableLookup' | 'dialByExtension' | 'getExternalOrganization' | 'getExternalContact' | 'findUtilizationLabel' | 'findUsersById' | 'findUserPrompt' | 'findUserById' | 'findUser' | 'findSystemPrompt' | 'findSkill' | 'findScheduleGroup' | 'findSchedule' | 'findQueueById' | 'findQueue' | 'findLanguageSkill' | 'findGroup' | 'findEmergencyGroup' | 'setWrapupCode' | 'setUtilizationLabel' | 'setScreenPop' | 'setLanguage' | 'setFlowOutcome' | 'initializeFlowOutcome' | 'enableParticipantRecord' | 'createCallback' | 'clearUtilizationLabel' | 'addFlowMilestone' | 'evaluateScheduleGroup' | 'evaluateSchedule' | 'loopExit' | 'loopNext' | 'previousMenu' | 'jumpToMenu' | 'endTask' | 'callTask' | 'jumpToTask':
-                        continue
-                    case _:
-                        continue 
-            return lista
-        except Exception as erro:
-            raise Exception(f'Ocorreu um erro: {erro}\nAction: {action}')
-
-    def quebrar_dicionario_call_data(self, action, lista: list) -> list:
-        try:
-            for chave, valor in action.items():
-                match chave:            
-                    case 'decision':
-                        if valor.get('outputs'):
-                            for saidas in valor['outputs'].values():
-                                for action in saidas['actions']:
-                                    self.quebrar_dicionario_call_data(action, lista)
-                    case 'switch':
-                        for case in valor['evaluate']['firstTrue']['cases']:
-                            for action in case['case']['actions']:
-                                self.quebrar_dicionario_call_data(action, lista)
-                        else:
-                            if valor['evaluate']['firstTrue'].get('default'):
-                                for action in valor['evaluate']['firstTrue']['default']['actions']:
-                                    self.quebrar_dicionario_call_data(action, lista)
-                    case 'collectInput':
-                        if valor.get('outputs'):
-                            for saidas in valor['outputs'].values():
-                                for action in saidas['actions']:
-                                    self.quebrar_dicionario_call_data(action, lista)
-                    case 'callData':
-                        category = list(valor['category'].keys())[0]
-                        name_data_action = list(valor['category'][category]['dataAction'].keys())[0]
-                        lista.append((category, name_data_action))
-                        if valor.get('outputs'):
-                            for saidas in valor['outputs'].values():
-                                for action in saidas['actions']:
-                                    self.quebrar_dicionario_call_data(action, lista)
-                    case 'loop':
-                        if valor.get('outputs'):
-                            for action in valor['outputs']['loop']['actions']:
-                                self.quebrar_dicionario_call_data(action, lista)
-                    case 'transferToFlow' | 'callCommonModule' | 'setParticipantData' | 'jumpToTask' | 'updateData' | 'playAudio' | 'disconnect' | 'getParticipantData' | 'setWhisperAudio' | 'flushAudio' | 'detectSilence' | 'playAudioOnSilence' | 'setSecuredData' | 'getSecuredData' | 'encryptData' | 'decryptData' | 'setUUIData' | 'setExternalTag' | 'getSIPHeaders' | 'getRawSIPHeaders' | 'dataTableLookup' | 'dialByExtension' | 'getExternalOrganization' | 'getExternalContact' | 'findUtilizationLabel' | 'findUsersById' | 'findUserPrompt' | 'findUserById' | 'findUser' | 'findSystemPrompt' | 'findSkill' | 'findScheduleGroup' | 'findSchedule' | 'findQueueById' | 'findQueue' | 'findLanguageSkill' | 'findGroup' | 'findEmergencyGroup' | 'setWrapupCode' | 'setUtilizationLabel' | 'setScreenPop' | 'setLanguage' | 'setFlowOutcome' | 'initializeFlowOutcome' | 'enableParticipantRecord' | 'createCallback' | 'clearUtilizationLabel' | 'addFlowMilestone' | 'evaluateScheduleGroup' | 'evaluateSchedule' | 'loopExit' | 'loopNext' | 'previousMenu' | 'jumpToMenu' | 'endTask' | 'callTask' | 'jumpToTask':
-                        continue
-                    case _:
-                        continue 
-            return lista
-        except Exception as erro:
-            raise Exception(f'Ocorreu um erro: {erro}\nAction: {action}')
-        
-    def get_dependencies(self, type_action: str) -> list:
-        dados = []
-        if self.flow_type == 'inboundCall':
-            for task in self.flow.tasks:
-                for action in task.actions:
-                    match type_action:
-                        case 'flows':
-                            result = self.quebrar_dicionario_transfer_to_flow(action, list())
-                        case 'data_actions':
-                            result = self.quebrar_dicionario_call_data(action, list())
-                        case _:
-                            pass
-                    dados.extend(result)
-        return sorted(list(set(dados)))
 
 
 class Archy:
@@ -266,7 +138,7 @@ class Archy:
         try:
             status, error = None, None
             file_flow = FileYaml(flow_file)
-            flow_name = file_flow.json_file[file_flow.flow_type]['name']
+            flow_name = file_flow.flow.name
             if self.verificar_flow_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
             flows_dependencies = file_flow.get_dependencies('flows')
@@ -285,8 +157,8 @@ class Archy:
             file_flow = FileYaml(flow_file_name)
             if self.verificar_flow_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
-            file_flow.json_file['inboundCall']['name'] = flow_name
-            file_flow.json_file['inboundCall']['description'] = description
+            file_flow.flow.name = flow_name
+            file_flow.flow.description = description
             file_flow.save_yaml_to_file()
             status = os.system(f'archy publish --file "{flow_file_name}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
             assert status == 0
@@ -300,8 +172,8 @@ class Archy:
         file_flow = FileYaml(flow_file_name)
         if self.verificar_flow_prd(flow_name):
             raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
-        file_flow.json_file['inboundCall']['name'] = flow_name
-        file_flow.json_file['inboundCall']['description'] = description
+        file_flow.flow.name = flow_name
+        file_flow.flow.description = description
         file_flow.save_yaml_to_file()
 
         cmd = f'archy publish --file "{flow_file_name}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}'
