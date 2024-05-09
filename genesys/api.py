@@ -141,6 +141,26 @@ class Genesys:
         data = class_new()
         return data
 
+    def update_attributtes_by_conversationId_and_participantId(self, conversation_id: str, participant_id: str, attributtes: dict) -> object:
+        """
+        GET /api/v2/conversations/{conversationId}/participants/{participantId}/attributes  \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}"
+        }
+        body = {
+            "attributes": attributtes
+        }
+        response = requests.patch(url='https://'+self.URL+f'/api/v2/conversations/{conversation_id}/participants/{participant_id}/attributes ', headers=headers, data=json.dumps(body))
+        if not response.ok:
+            raise Exception(f'Falha na chamada: update_attributtes_by_conversationId_and_participantId({conversation_id=},{participant_id=},{body=})\nstatus_code: {response.status_code}\ntext: {response.text}\n')
+        class_new = json_for_class('Conversation', response.json())
+        data = class_new()
+        return data
+
     def get_conversation_call_by_id(self, conversation_id: str) -> object:
         """
         GET /api/v2/conversations/calls/{conversationId} \n
