@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='Genesys',
-    version='2.0',
+    version='2.1',
     packages=find_packages(),
     package_data={'': ['*.yaml']},
     author='Matheus Almeida Santos Mendonça',

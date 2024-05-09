@@ -124,6 +124,23 @@ class Genesys:
         if not response.ok:
             raise Exception(f'Token Genesys inválido, failure: {response.status_code} - {response.reason}')
 
+    def get_conversation_by_id(self, conversation_id: str) -> object:
+        """
+        GET /api/v2/conversations/{conversationId} \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}"
+        }
+        response = requests.get(url='https://'+self.URL+f'/api/v2/conversations/{conversation_id}', headers=headers)
+        if not response.ok:
+            raise Exception(f'Falha na chamada: get_conversation_by_id({conversation_id=})\nstatus_code: {response.status_code}\ntext: {response.text}\n')
+        class_new = json_for_class('Conversation', response.json())
+        data = class_new()
+        return data
+
     def get_conversation_call_by_id(self, conversation_id: str) -> object:
         """
         GET /api/v2/conversations/calls/{conversationId} \n
@@ -784,12 +801,4 @@ class Genesys:
             flows.extend(self.get_dependencies(flow.id, flows))
         return list(set(flows))
     
-if __name__ == "__main__":
-    print('Carregando API...')
-    api = Genesys('VIA')
-    print('Vamos começar:')
-    #flow_name = 'HML_IVR_ClubeSaude_v32_Modulo1_Fluxo_Inicial'
-    #flow = api.get_flow_by_name(flow_name)
-    flow_id = '08bb8ff6-242d-4bb5-98ad-3d9d32aa019f'
-    print(api.update_flow_by_id(flow_id))
     
