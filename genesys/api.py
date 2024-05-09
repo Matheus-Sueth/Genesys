@@ -141,23 +141,21 @@ class Genesys:
         data = class_new()
         return data
 
-    def update_attributtes_by_conversationId_and_participantId(self, conversation_id: str, participant_id: str, attributtes: dict) -> object:
+    def update_attributtes_by_conversationId_and_participantId(self, conversation_id: str, participant_id: str, body: dict) -> object:
         """
-        GET /api/v2/conversations/{conversationId}/participants/{participantId}/attributes  \n
+        PATCH /api/v2/conversations/{conversationId}/participants/{participantId}/attributes  \n
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}"
+            "Authorization": f"Bearer {self.token}"
         }
-        body = {
-            "attributes": attributtes
-        }
-        response = requests.patch(url='https://'+self.URL+f'/api/v2/conversations/{conversation_id}/participants/{participant_id}/attributes ', headers=headers, data=json.dumps(body))
+        payload = json.dumps(body)
+        response = requests.patch(url='https://'+self.URL+f'/api/v2/conversations/{conversation_id}/participants/{participant_id}/attributes', headers=headers, data=payload)
         if not response.ok:
-            raise Exception(f'Falha na chamada: update_attributtes_by_conversationId_and_participantId({conversation_id=},{participant_id=},{body=})\nstatus_code: {response.status_code}\ntext: {response.text}\n')
-        class_new = json_for_class('Conversation', response.json())
+            raise Exception(f'Falha na chamada: update_attributtes_by_conversationId_and_participantId({conversation_id=},{participant_id=},{payload=})\nstatus_code: {response.status_code}\ntext: {response.text}\n')
+        class_new = json_for_class('Attributes', response.json())
         data = class_new()
         return data
 
@@ -820,5 +818,4 @@ class Genesys:
             print(flow.name)
             flows.extend(self.get_dependencies(flow.id, flows))
         return list(set(flows))
-    
     
