@@ -4,6 +4,7 @@ import re
 import json
 import yaml
 from genesys.api import Genesys
+from genesys.thread import Thread
 import pkg_resources
 import subprocess
 import genesys.type_flows.flows as tf_flow
@@ -83,15 +84,6 @@ class Archy:
             self.instance = super(Archy, self).__new__(self)
         return self.instance
     
-    def verificar_flow_prd(self, flow_name_or_id: str):
-        ivr_objects = self.api.architect_api.get_architect_ivrs()
-        for ivr in ivr_objects.entities:
-            flow_id = ivr.open_hours_flow.id
-            flow_name = ivr.open_hours_flow.name
-            if flow_name_or_id in (flow_id, flow_name):
-                return True
-        return False
-    
     def get_file_flow(flow_name: str, flow_version: str, output_dir: str):
         arquivos = os.listdir(os.path.abspath(f'{output_dir}/'))
         if flow_version == 'latest':
@@ -142,7 +134,7 @@ class Archy:
             if self.verificar_flow_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
             flows_dependencies = file_flow.get_dependencies('flows')
-            [self.publish_flow_empty(flow_name_dependencie) for flow_name_dependencie in flows_dependencies if self.api.architect_api.get_flows(name=flow_name_dependencie).total == 0] 
+            [self.publish_flow_empty(flow_name_dependencie) for flow_name_dependencie, flow_type_dependencie in flows_dependencies if self.api.get_flows(flow_name_or_description=flow_name_dependencie, type_flow=flow_type_dependencie).total == 0] 
             status = os.system(fr'archy publish --file "{flow_file}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
             assert status == 0
         except Exception as error:
@@ -150,6 +142,44 @@ class Archy:
         finally:
             return (status, self.description_publish_flow[status].format(flow_name=flow_name, flow_type=file_flow.flow_type, error=error), file_flow)
         
+    def publish_flow_subprocess(self, flow_file):
+        try:
+            dict_dados, result_error = None, None
+            file_flow = FileYaml(flow_file)
+            flow_name = file_flow.flow.name
+            if self.verificar_flow_prd(flow_name):
+                raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
+            flows_dependencies = file_flow.flow.get_dependencies('flows')
+            threads_list = []
+            for flow_name_dependencie in flows_dependencies:
+                if self.api.get_flows(flow_name_or_description=flow_name_dependencie).total == 0:
+                    t = Thread(name=flow_name_dependencie, funcao=self.publish_flow_empty_subprocess, args=(flow_name_dependencie,), daemon=True)
+                    t.start()
+                    threads_list.append(t)
+            for t in threads_list:
+                t.join()
+                tupla = t.get_resultado()
+                if None is not tupla[1]:
+                    raise Exception(f'Ocorreu um erro na função(publish_flow_empty_subprocess): {tupla=}')
+                if None is not tupla[0] or tupla[0].get('exit code','-1') != '0':
+                    raise Exception(f'Ocorreu um erro na função(publish_flow_empty_subprocess): {tupla=}')
+            cmd = f'archy publish --file "{flow_file}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}'
+            results, error = subprocess.Popen([r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe', "-Command", cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True).communicate()
+            if results:
+                dados = results.decode()
+                lista_dados = [dado.split(':') for dado in dados.split('\n') if dado.strip() != "" and ':' in dado]
+                dict_dados = {}
+                for dado in lista_dados:
+                    chave = dado[0].strip()
+                    valor = ':'.join(dado[1:]).strip()
+                    dict_dados[chave] = valor
+            if error:
+                result_error = error.decode()
+        except Exception as erro:
+            result_error = erro
+        finally:
+            return (dict_dados, result_error)
+
     def publish_flow_empty(self, flow_name, description='Fluxo_Vazio'):
         try:
             status, error = None, None
@@ -167,27 +197,30 @@ class Archy:
         finally:
             return (status, self.description_publish_flow[status].format(flow_name=flow_name, error=error), file_flow)
         
-    def publish_flow_empty_subprocess(self, flow_name, description='Fluxo_Vazio'):
-        flow_file_name = pkg_resources.resource_filename('genesys', 'inbound_call_start.yaml')
-        file_flow = FileYaml(flow_file_name)
-        if self.verificar_flow_prd(flow_name):
-            raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
-        file_flow.flow.name = flow_name
-        file_flow.flow.description = description
-        file_flow.save_yaml_to_file()
-
-        cmd = f'archy publish --file "{flow_file_name}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}'
-        results, error = subprocess.Popen([r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe', "-Command", cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True).communicate()
-        dados = results.decode()
-        lista_dados = [dado.split(':') for dado in dados.split('\n') if dado.strip() != "" and ':' in dado]
-        dict_dados = {}
-        for dado in lista_dados:
-            print(dado)
-            chave = dado[0].strip()
-            valor = ':'.join(dado[1:])
-            dict_dados[chave] = valor
-        #dict_dados = {dados[0].strip(): dados[1].strip() for dados in lista_dados if len(lista_dados) == 2}
-        print(f"{dict_dados=}")
-        if error:
-            print(f"{error.decode()=}")
-            exit()
+    def publish_flow_empty_subprocess(self, flow_name, description='Fluxo_Vazio') -> tuple[dict|None, str|None]:
+        try:
+            dict_dados, result_error = None, None
+            flow_file_name = pkg_resources.resource_filename('genesys', 'inbound_call_start.yaml')
+            file_flow = FileYaml(flow_file_name)
+            if self.verificar_flow_prd(flow_name):
+                raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
+            file_flow.flow.name = flow_name
+            file_flow.flow.description = description
+            file_flow.save_yaml_to_file()
+            cmd = f'archy publish --file "{flow_file_name}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}'
+            results, error = subprocess.Popen([r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe', "-Command", cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True).communicate()
+            if results:
+                dados = results.decode()
+                lista_dados = [dado.split(':') for dado in dados.split('\n') if dado.strip() != "" and ':' in dado]
+                dict_dados = {}
+                for dado in lista_dados:
+                    chave = dado[0].strip()
+                    valor = ':'.join(dado[1:]).strip()
+                    dict_dados[chave] = valor
+            if error:
+                result_error = error.decode()
+        except Exception as erro:
+            result_error = erro
+        finally:
+            return (dict_dados, result_error)
+ 

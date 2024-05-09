@@ -17,6 +17,7 @@ class Task:
     refId: str
     variables: Optional[dict] = None
     actions: Optional[list] = None
+    outputPaths: Optional[dict] = None
 
 
 @dataclass
@@ -42,37 +43,49 @@ class InboundCall:
             for chave, valor in action.items():
                 match chave:
                     case 'callCommonModule':
-                        lista.append(list(valor['commonModule'].keys())[0])
+                        name_flow = list(valor['commonModule'].keys())[0]
+                        lista.append((name_flow, 'commonModule'))
                         continue
                     case 'transferToFlow':
-                        lista.append(valor['targetFlow']['name'])            
+                        name_flow = valor['targetFlow']['name']
+                        lista.append((name_flow, 'inboundcall'))            
                     case 'decision':
                         if valor.get('outputs'):
                             for saidas in valor['outputs'].values():
-                                for action in saidas['actions']:
-                                    self.quebrar_dicionario_transfer_to_flow(action, lista)
+                                if saidas.get('actions'):
+                                    for action in saidas['actions']:
+                                        self.quebrar_dicionario_transfer_to_flow(action, lista)
                     case 'switch':
-                        for case in valor['evaluate']['firstTrue']['cases']:
-                            for action in case['case']['actions']:
-                                self.quebrar_dicionario_transfer_to_flow(action, lista)
+                        if valor['evaluate'].get('firstTrue'):
+                            evaluate = valor['evaluate']['firstTrue']
                         else:
-                            if valor['evaluate']['firstTrue'].get('default'):
-                                for action in valor['evaluate']['firstTrue']['default']['actions']:
+                            evaluate = valor['evaluate']['firstMatch']['string']
+                        for case in evaluate['cases']:
+                            if case['case'].get('actions'):
+                                for action in case['case']['actions']:
                                     self.quebrar_dicionario_transfer_to_flow(action, lista)
+                        else:
+                            if evaluate.get('default'):
+                                if evaluate['default'].get('actions'):
+                                    for action in evaluate['default']['actions']:
+                                        self.quebrar_dicionario_transfer_to_flow(action, lista)
                     case 'collectInput':
                         if valor.get('outputs'):
                             for saidas in valor['outputs'].values():
-                                for action in saidas['actions']:
-                                    self.quebrar_dicionario_transfer_to_flow(action, lista)
+                                if saidas.get('actions'):
+                                    for action in saidas['actions']:
+                                        self.quebrar_dicionario_transfer_to_flow(action, lista)
                     case 'callData':
                         if valor.get('outputs'):
                             for saidas in valor['outputs'].values():
-                                for action in saidas['actions']:
-                                    self.quebrar_dicionario_transfer_to_flow(action, lista)
+                                if saidas.get('actions'):
+                                    for action in saidas['actions']:
+                                        self.quebrar_dicionario_transfer_to_flow(action, lista)
                     case 'loop':
                         if valor.get('outputs'):
-                            for action in valor['outputs']['loop']['actions']:
-                                self.quebrar_dicionario_transfer_to_flow(action, lista)
+                            if valor['outputs']['loop'].get('actions'):
+                                for action in valor['outputs']['loop']['actions']:
+                                    self.quebrar_dicionario_transfer_to_flow(action, lista)
                     case 'setParticipantData' | 'jumpToTask' | 'updateData' | 'playAudio' | 'disconnect' | 'getParticipantData' | 'setWhisperAudio' | 'flushAudio' | 'detectSilence' | 'playAudioOnSilence' | 'setSecuredData' | 'getSecuredData' | 'encryptData' | 'decryptData' | 'setUUIData' | 'setExternalTag' | 'getSIPHeaders' | 'getRawSIPHeaders' | 'dataTableLookup' | 'dialByExtension' | 'getExternalOrganization' | 'getExternalContact' | 'findUtilizationLabel' | 'findUsersById' | 'findUserPrompt' | 'findUserById' | 'findUser' | 'findSystemPrompt' | 'findSkill' | 'findScheduleGroup' | 'findSchedule' | 'findQueueById' | 'findQueue' | 'findLanguageSkill' | 'findGroup' | 'findEmergencyGroup' | 'setWrapupCode' | 'setUtilizationLabel' | 'setScreenPop' | 'setLanguage' | 'setFlowOutcome' | 'initializeFlowOutcome' | 'enableParticipantRecord' | 'createCallback' | 'clearUtilizationLabel' | 'addFlowMilestone' | 'evaluateScheduleGroup' | 'evaluateSchedule' | 'loopExit' | 'loopNext' | 'previousMenu' | 'jumpToMenu' | 'endTask' | 'callTask' | 'jumpToTask':
                         continue
                     case _:
@@ -88,33 +101,43 @@ class InboundCall:
                     case 'decision':
                         if valor.get('outputs'):
                             for saidas in valor['outputs'].values():
-                                for action in saidas['actions']:
-                                    self.quebrar_dicionario_call_data(action, lista)
+                                if saidas.get('actions'):
+                                    for action in saidas['actions']:
+                                        self.quebrar_dicionario_transfer_to_flow(action, lista)
                     case 'switch':
-                        for case in valor['evaluate']['firstTrue']['cases']:
-                            for action in case['case']['actions']:
-                                self.quebrar_dicionario_call_data(action, lista)
+                        if valor['evaluate'].get('firstTrue'):
+                            evaluate = valor['evaluate']['firstTrue']
                         else:
-                            if valor['evaluate']['firstTrue'].get('default'):
-                                for action in valor['evaluate']['firstTrue']['default']['actions']:
-                                    self.quebrar_dicionario_call_data(action, lista)
+                            evaluate = valor['evaluate']['firstMatch']['string']
+                        for case in evaluate['cases']:
+                            if case['case'].get('actions'):
+                                for action in case['case']['actions']:
+                                    self.quebrar_dicionario_transfer_to_flow(action, lista)
+                        else:
+                            if evaluate.get('default'):
+                                if evaluate['default'].get('actions'):
+                                    for action in evaluate['default']['actions']:
+                                        self.quebrar_dicionario_transfer_to_flow(action, lista)
                     case 'collectInput':
                         if valor.get('outputs'):
                             for saidas in valor['outputs'].values():
-                                for action in saidas['actions']:
-                                    self.quebrar_dicionario_call_data(action, lista)
+                                if saidas.get('actions'):
+                                    for action in saidas['actions']:
+                                        self.quebrar_dicionario_transfer_to_flow(action, lista)
                     case 'callData':
                         category = list(valor['category'].keys())[0]
                         name_data_action = list(valor['category'][category]['dataAction'].keys())[0]
                         lista.append((category, name_data_action))
                         if valor.get('outputs'):
                             for saidas in valor['outputs'].values():
-                                for action in saidas['actions']:
-                                    self.quebrar_dicionario_call_data(action, lista)
+                                if saidas.get('actions'):
+                                    for action in saidas['actions']:
+                                        self.quebrar_dicionario_transfer_to_flow(action, lista)
                     case 'loop':
                         if valor.get('outputs'):
-                            for action in valor['outputs']['loop']['actions']:
-                                self.quebrar_dicionario_call_data(action, lista)
+                            if valor['outputs']['loop'].get('actions'):
+                                for action in valor['outputs']['loop']['actions']:
+                                    self.quebrar_dicionario_transfer_to_flow(action, lista)
                     case 'transferToFlow' | 'callCommonModule' | 'setParticipantData' | 'jumpToTask' | 'updateData' | 'playAudio' | 'disconnect' | 'getParticipantData' | 'setWhisperAudio' | 'flushAudio' | 'detectSilence' | 'playAudioOnSilence' | 'setSecuredData' | 'getSecuredData' | 'encryptData' | 'decryptData' | 'setUUIData' | 'setExternalTag' | 'getSIPHeaders' | 'getRawSIPHeaders' | 'dataTableLookup' | 'dialByExtension' | 'getExternalOrganization' | 'getExternalContact' | 'findUtilizationLabel' | 'findUsersById' | 'findUserPrompt' | 'findUserById' | 'findUser' | 'findSystemPrompt' | 'findSkill' | 'findScheduleGroup' | 'findSchedule' | 'findQueueById' | 'findQueue' | 'findLanguageSkill' | 'findGroup' | 'findEmergencyGroup' | 'setWrapupCode' | 'setUtilizationLabel' | 'setScreenPop' | 'setLanguage' | 'setFlowOutcome' | 'initializeFlowOutcome' | 'enableParticipantRecord' | 'createCallback' | 'clearUtilizationLabel' | 'addFlowMilestone' | 'evaluateScheduleGroup' | 'evaluateSchedule' | 'loopExit' | 'loopNext' | 'previousMenu' | 'jumpToMenu' | 'endTask' | 'callTask' | 'jumpToTask':
                         continue
                     case _:

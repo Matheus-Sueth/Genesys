@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='Genesys',
-    version='1.6',
+    version='2.0',
     packages=find_packages(),
     package_data={'': ['*.yaml']},
     author='Matheus Almeida Santos Mendonça',
@@ -15,7 +15,6 @@ setup(
         'python-dotenv',
         'PyYAML',
         'requests',
-        'PureCloudPlatformClientV2',
         'setuptools'
     ],
     classifiers=[
