@@ -174,6 +174,7 @@ class Archy:
                     chave = dado[0].strip()
                     valor = ':'.join(dado[1:]).strip()
                     dict_dados[chave] = valor.replace("'","")
+                assert dict_dados['exit code'] == '0'
                 file_flow = FileYaml(dict_dados['Export file'])
             if error:
                 result_error = error.decode()
@@ -205,6 +206,8 @@ class Archy:
             flow_name = file_flow.flow.name
             if self.verificar_flow_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
+            flows_dependencies = file_flow.flow.get_dependencies('flows')
+            [self.publish_flow_empty_subprocess(flow_name_dependencie) for flow_name_dependencie, flow_type_dependencie in flows_dependencies if self.api.get_flows(flow_name_or_description=flow_name_dependencie, type_flow=flow_type_dependencie).total == 0] 
             cmd = f'archy publish --file "{flow_file}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}'
             results, error = subprocess.Popen([r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe', "-Command", cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True).communicate()
             if results:
@@ -215,6 +218,7 @@ class Archy:
                     chave = dado[0].strip()
                     valor = ':'.join(dado[1:]).strip()
                     dict_dados[chave] = valor
+                assert dict_dados['exit code'] == '0'
             if error:
                 result_error = error.decode()
         except Exception as erro:
@@ -259,6 +263,7 @@ class Archy:
                     chave = dado[0].strip()
                     valor = ':'.join(dado[1:]).strip()
                     dict_dados[chave] = valor
+                assert dict_dados['exit code'] == '0'
             if error:
                 result_error = error.decode()
         except Exception as erro:
