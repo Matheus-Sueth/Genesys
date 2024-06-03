@@ -71,9 +71,9 @@ class FileYaml:
         return json.dumps(data, ensure_ascii=False, indent=2)
     
     def save_yaml_to_file(self) -> FileYaml:        
-        with open(r'G:\Meu Drive\Mutant\Flow\yamlFlow\teste.yaml', 'w', encoding='utf-8') as yaml_file:
+        with open(self.path_file, 'w', encoding='utf-8') as yaml_file:
             yaml.dump(self.flow.class_asdict(), yaml_file, default_flow_style=False, allow_unicode=True)
-        return FileYaml(r'G:\Meu Drive\Mutant\Flow\yamlFlow\teste.yaml')
+        return FileYaml(self.path_file)
 
 
 class Archy:
@@ -189,7 +189,7 @@ class Archy:
             flow_name = file_flow.flow.name
             if self.verificar_flow_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
-            flows_dependencies = file_flow.get_dependencies('flows')
+            flows_dependencies = file_flow.flow.get_dependencies('flows')
             [self.publish_flow_empty(flow_name_dependencie) for flow_name_dependencie, flow_type_dependencie in flows_dependencies if self.api.get_flows(flow_name_or_description=flow_name_dependencie, type_flow=flow_type_dependencie).total == 0] 
             status = os.system(fr'archy publish --file "{flow_file}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
             assert status == 0
