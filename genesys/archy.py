@@ -124,8 +124,8 @@ class Archy:
     def verificar_flow_prd(self, flow_name_or_id: str):
         ivr_objects = self.api.get_ivrs()
         for ivr in ivr_objects.entities:
-            flow_id = ivr.open_hours_flow.id
-            flow_name = ivr.open_hours_flow.name
+            flow_id = ivr.openHoursFlow.id
+            flow_name = ivr.openHoursFlow.name
             if flow_name_or_id in (flow_id, flow_name):
                 return True
         return False
