@@ -4,22 +4,47 @@ import re
 import json
 import yaml
 from genesys.api import Genesys
-from genesys.thread import Thread
 import pkg_resources
 import subprocess
 import genesys.type_flows.flows as tf_flow
+from collections import OrderedDict
+
+
+def represent_ordereddict(dumper, data):
+    return dumper.represent_dict(data.items())
+
+yaml.add_representer(OrderedDict, represent_ordereddict)
 
 
 class FileYaml:
+    PREFIXE = ['B','KB','MB','GB','TB']
+
     def __init__(self, path_file: str) -> None:
         self.path_file = path_file
+        assert os.path.exists(self.path_file)
         with open(self.path_file, 'rb') as arq_file:
             file = arq_file.read().decode('utf-8')
         self.file_genesys_txt = file.replace('\t', '')
-        self.json_file = json.loads(self.yaml_to_json())
-        self.auxiliar = json.loads(self.yaml_to_json())
+        self.json_file = OrderedDict(json.loads(self.yaml_to_json()))
+        self.auxiliar = OrderedDict(json.loads(self.yaml_to_json()))
         self.definir_flow()
-
+    
+    def __repr__(self) -> str:
+        return f"FileYaml(Path: {self.path_file})"
+    
+    def __str__(self) -> str:
+        path = self.path_file
+        nome = os.path.basename(self.path_file)
+        is_flow = self.flow is None
+        size, prefixe = self._return_size(os.path.getsize(path))
+        return f"FileYaml\nPath: {path}\nName: {nome}\nFlow is None: {is_flow}\nSize: {size:.2f} {prefixe}"
+    
+    def _return_size(self, number: float, prefixe: int=0) -> tuple[int, str]:
+        if number < 1000:
+            return number, self.PREFIXE[prefixe]
+        prefixe+=1
+        return self._return_size(number/1024, prefixe)
+        
     def definir_flow(self):
         self.flow_type = list(self.json_file.keys())[0]
         if self.flow_type == 'inboundCall':
@@ -46,9 +71,9 @@ class FileYaml:
         return json.dumps(data, ensure_ascii=False, indent=2)
     
     def save_yaml_to_file(self) -> FileYaml:        
-        with open(self.path_file, 'w', encoding='utf-8') as yaml_file:
+        with open(r'G:\Meu Drive\Mutant\Flow\yamlFlow\teste.yaml', 'w', encoding='utf-8') as yaml_file:
             yaml.dump(self.flow.class_asdict(), yaml_file, default_flow_style=False, allow_unicode=True)
-        return FileYaml(self.path_file)
+        return FileYaml(r'G:\Meu Drive\Mutant\Flow\yamlFlow\teste.yaml')
 
 
 class Archy:
@@ -96,6 +121,15 @@ class Archy:
         else:
             caminho_file = os.path.join(output_dir, flow_files[-1])
 
+    def verificar_flow_prd(self, flow_name_or_id: str):
+        ivr_objects = self.api.get_ivrs()
+        for ivr in ivr_objects.entities:
+            flow_id = ivr.open_hours_flow.id
+            flow_name = ivr.open_hours_flow.name
+            if flow_name_or_id in (flow_id, flow_name):
+                return True
+        return False
+
     def export_flow(self, flow_name: str, flow_type: str = 'inboundcall', flow_version: str = 'latest', output_dir: str = 'flows'):
         status = os.system(f'archy export --flowName "{flow_name}" --flowType {flow_type} --flowVersion {flow_version} --outputDir "{output_dir}" --exportType yaml --authTokenIsClientCredentials true --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
         try:
@@ -119,13 +153,35 @@ class Archy:
                     datas_criacao[arquivo] = os.path.getctime(os.path.abspath(os.path.join(output_dir, arquivo))) 
                 arquivos_ordenados = sorted(datas_criacao.keys(), key=lambda x: datas_criacao[x])
                 caminho_file = os.path.join(output_dir, arquivos_ordenados[-1])
+            
             file_flow = FileYaml(os.path.abspath(caminho_file))
         except Exception as error:
             print(f'{error=}')
             file_flow = None
         finally:
             return (status, self.description_export_flow[status].format(flow_name=flow_name, flow_type=flow_type), file_flow)
-    
+
+    def export_flow_subprocess(self, flow_name: str, flow_type: str = 'inboundcall', flow_version: str = 'latest', output_dir: str = 'flows'):
+        cmd = f'archy export --flowName "{flow_name}" --flowType {flow_type} --flowVersion {flow_version} --outputDir "{output_dir}" --exportType yaml --authTokenIsClientCredentials true --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}'
+        try:
+            file_flow, result_error = None, None
+            results, error = subprocess.Popen([r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe', "-Command", cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True).communicate()
+            if results:
+                dados = results.decode()
+                lista_dados = [dado.split(':') for dado in dados.split('\n') if dado.strip() != "" and ':' in dado]
+                dict_dados = {}
+                for dado in lista_dados:
+                    chave = dado[0].strip()
+                    valor = ':'.join(dado[1:]).strip()
+                    dict_dados[chave] = valor.replace("'","")
+                file_flow = FileYaml(dict_dados['Export file'])
+            if error:
+                result_error = error.decode()
+        except Exception as erro:
+            result_error = erro
+        finally:
+            return (dict_dados, result_error, file_flow)
+        
     def publish_flow(self, flow_file):
         try:
             status, error = None, None
@@ -149,20 +205,6 @@ class Archy:
             flow_name = file_flow.flow.name
             if self.verificar_flow_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
-            flows_dependencies = file_flow.flow.get_dependencies('flows')
-            threads_list = []
-            for flow_name_dependencie in flows_dependencies:
-                if self.api.get_flows(flow_name_or_description=flow_name_dependencie).total == 0:
-                    t = Thread(name=flow_name_dependencie, funcao=self.publish_flow_empty_subprocess, args=(flow_name_dependencie,), daemon=True)
-                    t.start()
-                    threads_list.append(t)
-            for t in threads_list:
-                t.join()
-                tupla = t.get_resultado()
-                if None is not tupla[1]:
-                    raise Exception(f'Ocorreu um erro na função(publish_flow_empty_subprocess): {tupla=}')
-                if None is not tupla[0] or tupla[0].get('exit code','-1') != '0':
-                    raise Exception(f'Ocorreu um erro na função(publish_flow_empty_subprocess): {tupla=}')
             cmd = f'archy publish --file "{flow_file}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}'
             results, error = subprocess.Popen([r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe', "-Command", cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True).communicate()
             if results:

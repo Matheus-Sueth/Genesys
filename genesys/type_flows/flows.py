@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, asdict
 from typing import Optional
+from collections import OrderedDict
 
 
 @dataclass
@@ -37,6 +38,14 @@ class InboundCall:
     variables: Optional[dict] = None
     tasks: Optional[list[Task]] = None
     menus: Optional[list] = None
+
+    def __repr__(self) -> str:
+        return f"InboundCall(Name: {self.name}, Description: {self.description})"
+
+    def __str__(self) -> str:
+        qtd_tasks = len(self.tasks) if self.tasks is not None else 0
+        qtd_menus = len(self.menus) if self.menus is not None else 0
+        return f"InboundCall\nName: {self.name}\nDescription: {self.description}\nTasks: {qtd_tasks}\nMenus: {qtd_menus}"
 
     def quebrar_dicionario_transfer_to_flow(self, action, lista: list) -> list:
         try:
@@ -161,14 +170,14 @@ class InboundCall:
         return sorted(list(set(dados)))
 
     def class_asdict(self) -> dict:
-        data = {'inboundCall': {}}
+        data = {'inboundCall': OrderedDict({})}
         for chave, valor in asdict(self).items():
             if valor is not None:
                 data['inboundCall'][chave] = valor
         #tasks = [{'task':asdict(task)} for task in self.tasks]
         tasks = []
         for task in self.tasks:
-            aux_task = {'task':{}}
+            aux_task = {'task':OrderedDict({})}
             for chave, valor in asdict(task).items():
                 if valor is not None:
                     aux_task['task'][chave] = valor
@@ -189,10 +198,17 @@ class InboundShortMessage:
     description: str
     division: str
     startUpRef: str
-    initialGreeting: dict
     defaultLanguage: str
     supportedLanguages: dict
     settingsErrorHandling: dict
     variables: Optional[dict] = None
     tasks: Optional[list[Task]] = None
     states: Optional[list[State]] = None
+
+    def __repr__(self) -> str:
+        return f"InboundShortMessage(Name: {self.name}, Description: {self.description})"
+
+    def __str__(self) -> str:
+        qtd_tasks = len(self.tasks) if self.tasks is not None else 0
+        qtd_states = len(self.states) if self.states is not None else 0
+        return f"InboundShortMessage\nName: {self.name}\nDescription: {self.description}\nTasks: {qtd_tasks}\nStates: {qtd_states}"
