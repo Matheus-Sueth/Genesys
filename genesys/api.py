@@ -417,7 +417,7 @@ class Genesys:
         dados = response.json()
         if response.status_code != 200:
             raise Exception(f'Falha na chamada: get_ivr_by_id({ivr_id=})\nstatus_code: {response.status_code}\ntext: {response.text}\n')
-        class_new = json_for_class('Ivr', dados['entities'][0])
+        class_new = json_for_class('Ivr', dados)
         data = class_new()
         return data
 
