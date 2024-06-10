@@ -121,15 +121,6 @@ class Archy:
         else:
             caminho_file = os.path.join(output_dir, flow_files[-1])
 
-    def verificar_flow_prd(self, flow_name_or_id: str):
-        ivr_objects = self.api.get_ivrs()
-        for ivr in ivr_objects.entities:
-            flow_id = ivr.openHoursFlow.id
-            flow_name = ivr.openHoursFlow.name
-            if flow_name_or_id in (flow_id, flow_name):
-                return True
-        return False
-
     def export_flow(self, flow_name: str, flow_type: str = 'inboundcall', flow_version: str = 'latest', output_dir: str = 'flows'):
         status = os.system(f'archy export --flowName "{flow_name}" --flowType {flow_type} --flowVersion {flow_version} --outputDir "{output_dir}" --exportType yaml --authTokenIsClientCredentials true --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}')
         try:
@@ -207,13 +198,14 @@ class Archy:
             if self.verificar_flow_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
             flows_dependencies = file_flow.flow.get_dependencies('flows')
-            [self.publish_flow_empty_subprocess(flow_name_dependencie) for flow_name_dependencie, flow_type_dependencie in flows_dependencies if self.api.get_flows(flow_name_or_description=flow_name_dependencie, type_flow=flow_type_dependencie).total == 0] 
+            dependencies = [self.publish_flow_empty_subprocess(flow_name_dependencie) for flow_name_dependencie, flow_type_dependencie in flows_dependencies if self.api.get_flows(flow_name_or_description=flow_name_dependencie, type_flow=flow_type_dependencie).total == 0] 
             cmd = f'archy publish --file "{flow_file}" --clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET} --location {self.LOCATION}'
             results, error = subprocess.Popen([r'C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe', "-Command", cmd], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True).communicate()
             if results:
                 dados = results.decode()
                 lista_dados = [dado.split(':') for dado in dados.split('\n') if dado.strip() != "" and ':' in dado]
                 dict_dados = {}
+                dict_dados['dependencies'] = dependencies
                 for dado in lista_dados:
                     chave = dado[0].strip()
                     valor = ':'.join(dado[1:]).strip()

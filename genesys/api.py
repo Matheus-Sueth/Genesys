@@ -819,3 +819,43 @@ class Genesys:
             flows.extend(self.get_dependencies(flow.id, flows))
         return list(set(flows))
     
+    def search_flow_is_prd(self, flow_name_or_id: str) -> bool:
+        ivr_objects = self.get_ivrs(page_size=200)
+        for ivr in ivr_objects.entities:
+            flow_id = ivr.openHoursFlow.id
+            flow_name = ivr.openHoursFlow.name
+            if flow_name_or_id in (flow_id, flow_name):
+                return True
+            dados = self.get_last_configuration_flow_by_id(flow_id)
+            
+            if hasattr(dados.manifest, "inboundCallFlow"):
+                for flow in dados.manifest.inboundCallFlow:
+                    flow_id = flow.id
+                    flow_name = flow.name
+                    if flow_name_or_id in (flow_id, flow_name):
+                        return True
+            
+        receipe_objects = self.get_recipients_routing(page_size=200)
+        for receipe in receipe_objects.entities:
+            flow_id = receipe.flow.id
+            flow_name = receipe.flow.name
+            if flow_name_or_id in (flow_id, flow_name):
+                return True
+            dados = self.get_last_configuration_flow_by_id(flow_id)
+
+            if hasattr(dados.manifest, "commonModuleFlow"):
+                for flow in dados.manifest.commonModuleFlow:
+                    flow_id = flow.id
+                    flow_name = flow.name
+                    if flow_name_or_id in (flow_id, flow_name):
+                        return True
+                    
+
+            if hasattr(dados.manifest, "botFlow"):
+                for flow in dados.manifest.botFlow:
+                    flow_id = flow.id
+                    flow_name = flow.name
+                    if flow_name_or_id in (flow_id, flow_name):
+                        return True
+
+        return False 
