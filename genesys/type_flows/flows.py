@@ -24,7 +24,7 @@ class Task:
 @dataclass
 class InboundCall:
     name: str
-    description: str
+    description: Optional[str] = None
     division: str
     startUpRef: str
     initialGreeting: dict
@@ -195,7 +195,7 @@ class InboundCall:
 @dataclass
 class InboundShortMessage:
     name: str
-    description: str
+    description: Optional[str] = None
     division: str
     startUpRef: str
     defaultLanguage: str
@@ -217,13 +217,14 @@ class InboundShortMessage:
         try:
             for chave, valor in action.items():
                 match chave:
+                    case 'callBotFlow':
+                        name_flow = list(valor['botFlow'].keys())[0]
+                        lista.append((name_flow, 'bot'))
+                        continue
                     case 'callCommonModule':
                         name_flow = list(valor['commonModule'].keys())[0]
                         lista.append((name_flow, 'commonModule'))
-                        continue
-                    case 'transferToFlow':
-                        name_flow = valor['targetFlow']['name']
-                        lista.append((name_flow, 'inboundcall'))            
+                        continue     
                     case 'decision':
                         if valor.get('outputs'):
                             for saidas in valor['outputs'].values():
@@ -261,7 +262,7 @@ class InboundShortMessage:
                             if valor['outputs']['loop'].get('actions'):
                                 for action in valor['outputs']['loop']['actions']:
                                     self.quebrar_dicionario_transfer_to_flow(action, lista)
-                    case 'setParticipantData' | 'jumpToTask' | 'updateData' | 'playAudio' | 'disconnect' | 'getParticipantData' | 'setWhisperAudio' | 'flushAudio' | 'detectSilence' | 'playAudioOnSilence' | 'setSecuredData' | 'getSecuredData' | 'encryptData' | 'decryptData' | 'setUUIData' | 'setExternalTag' | 'getSIPHeaders' | 'getRawSIPHeaders' | 'dataTableLookup' | 'dialByExtension' | 'getExternalOrganization' | 'getExternalContact' | 'findUtilizationLabel' | 'findUsersById' | 'findUserPrompt' | 'findUserById' | 'findUser' | 'findSystemPrompt' | 'findSkill' | 'findScheduleGroup' | 'findSchedule' | 'findQueueById' | 'findQueue' | 'findLanguageSkill' | 'findGroup' | 'findEmergencyGroup' | 'setWrapupCode' | 'setUtilizationLabel' | 'setScreenPop' | 'setLanguage' | 'setFlowOutcome' | 'initializeFlowOutcome' | 'enableParticipantRecord' | 'createCallback' | 'clearUtilizationLabel' | 'addFlowMilestone' | 'evaluateScheduleGroup' | 'evaluateSchedule' | 'loopExit' | 'loopNext' | 'previousMenu' | 'jumpToMenu' | 'endTask' | 'callTask' | 'jumpToTask':
+                    case 'transferToFlow' | 'setParticipantData' | 'jumpToTask' | 'updateData' | 'playAudio' | 'disconnect' | 'getParticipantData' | 'setWhisperAudio' | 'flushAudio' | 'detectSilence' | 'playAudioOnSilence' | 'setSecuredData' | 'getSecuredData' | 'encryptData' | 'decryptData' | 'setUUIData' | 'setExternalTag' | 'getSIPHeaders' | 'getRawSIPHeaders' | 'dataTableLookup' | 'dialByExtension' | 'getExternalOrganization' | 'getExternalContact' | 'findUtilizationLabel' | 'findUsersById' | 'findUserPrompt' | 'findUserById' | 'findUser' | 'findSystemPrompt' | 'findSkill' | 'findScheduleGroup' | 'findSchedule' | 'findQueueById' | 'findQueue' | 'findLanguageSkill' | 'findGroup' | 'findEmergencyGroup' | 'setWrapupCode' | 'setUtilizationLabel' | 'setScreenPop' | 'setLanguage' | 'setFlowOutcome' | 'initializeFlowOutcome' | 'enableParticipantRecord' | 'createCallback' | 'clearUtilizationLabel' | 'addFlowMilestone' | 'evaluateScheduleGroup' | 'evaluateSchedule' | 'loopExit' | 'loopNext' | 'previousMenu' | 'jumpToMenu' | 'endTask' | 'callTask' | 'jumpToTask':
                         continue
                     case _:
                         continue 

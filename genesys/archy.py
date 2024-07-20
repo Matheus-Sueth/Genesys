@@ -138,7 +138,7 @@ class Archy:
             dict_dados, result_error = None, None
             file_flow = FileYaml(flow_file)
             flow_name = file_flow.flow.name
-            if self.verificar_flow_prd(flow_name):
+            if self.api.search_flow_is_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
             flows_dependencies = file_flow.flow.get_dependencies('flows')
             dependencies = [self.publish_flow_empty_subprocess(flow_name_dependencie) for flow_name_dependencie, flow_type_dependencie in flows_dependencies if self.api.get_flows(flow_name_or_description=flow_name_dependencie, type_flow=flow_type_dependencie).total == 0] 
@@ -166,7 +166,7 @@ class Archy:
             dict_dados, result_error = None, None
             flow_file_name = imp_res.files('genesys', 'inbound_call_start.yaml')
             file_flow = FileYaml(flow_file_name)
-            if self.verificar_flow_prd(flow_name):
+            if self.api.search_flow_is_prd(flow_name):
                 raise Exception(f'Fluxo: {flow_name} é utilizado nos ivrs de produção')
             file_flow.flow.name = flow_name
             file_flow.flow.description = description
