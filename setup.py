@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="Genesys",
-    version="2.5.1",
+    version="2.5.2",
     packages=find_packages(),
     package_data={"": ["*.yaml"]},
     author="Matheus Almeida Santos Mendonça",
@@ -11,7 +11,13 @@ setup(
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     url="https://github.com/Matheus-Sueth/Genesys.git",
-    install_requires=["python-dotenv", "PyYAML", "requests", "setuptools"],
+    install_requires=[
+        "python-dotenv",
+        "PyYAML",
+        "requests",
+        "setuptools",
+        "pre-commit",
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
