@@ -831,7 +831,7 @@ class Genesys:
         data = class_new()
         return data
 
-    def get_version_last_flow_by_name(self, flow_name) -> int:
+    def get_version_last_flow_by_name(self, flow_name: str) -> int:
         fluxos = []
         page_number = 1
         regex = r"_(?:V|v)(\d+)_"
@@ -842,7 +842,7 @@ class Genesys:
             if len(fluxos) >= dados.total:
                 break
             for fluxo in dados.entities:
-                fluxos.extend(re.search(regex, fluxo.name))
+                fluxos.extend([re.search(regex, fluxo.name)])
             page_number += 1
         return max([int(match.group(1)) for match in fluxos])
 
