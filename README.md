@@ -10,6 +10,9 @@ O projeto Genesys é uma ferramenta para gerenciar aplicação do Archy e as API
 - Excluir URAs e BOTS não mais necessários
 - Consumo das APIs do Genesys Cloud.
 
+## Requisitos
+É necessário ter o Python 3.12+, Python 3.11 não pode ser usado ou versões anteriores.
+
 ## Instalação
 Para instalar o projeto Genesys execute o seguinte comando:
 
