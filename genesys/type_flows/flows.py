@@ -173,12 +173,12 @@ class InboundCall:
                     case "getParticipantData":
                         for atribute in valor["attributes"]:
                             name = atribute["attribute"]["name"]
-                            name_attribute = name["lit"] if hasattr(name, "lit") else name["exp"]
+                            name_attribute = name["lit"] if name.get("lit", False) else name["exp"]
                             lista.append(((name_attribute,'getParticipantData'), "inboundcall"))
                     case "setParticipantData":
                         for atribute in valor["attributes"]:
                             name = atribute["attribute"]["name"]
-                            name_attribute = name["lit"] if hasattr(name, "lit") else name["exp"]
+                            name_attribute = name["lit"] if name.get("lit", False) else name["exp"]
                             lista.append(((name_attribute,'setParticipantData'), "inboundcall"))
                     case "decision":
                         if valor.get("outputs"):
@@ -411,12 +411,12 @@ class InboundShortMessage:
                     case "getParticipantData":
                         for atribute in valor["attributes"]:
                             name = atribute["attribute"]["name"]
-                            name_attribute = name["lit"] if hasattr(name, "lit") else name["exp"]
+                            name_attribute = name["lit"] if name.get("lit", False) else name["exp"]
                             lista.append(((name_attribute,'getParticipantData'), "inboundcall"))
                     case "setParticipantData":
                         for atribute in valor["attributes"]:
                             name = atribute["attribute"]["name"]
-                            name_attribute = name["lit"] if hasattr(name, "lit") else name["exp"]
+                            name_attribute = name["lit"] if name.get("lit", False) else name["exp"]
                             lista.append(((name_attribute,'setParticipantData'), "inboundcall"))
                     case "decision":
                         if valor.get("outputs"):
