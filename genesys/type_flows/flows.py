@@ -166,6 +166,66 @@ class InboundCall:
         except Exception as erro:
             raise Exception(f"Ocorreu um erro: {erro}\nAction: {action}")
 
+    def search_attribute(self, action, lista: list) -> list:
+        try:
+            for chave, valor in action.items():
+                match chave:
+                    case "getParticipantData":
+                        for atribute in valor["attributes"]:
+                            name = atribute["attribute"]["name"]
+                            name_attribute = name["lit"] if hasattr(name, "lit") else name["exp"]
+                            lista.append(((name_attribute,'getParticipantData'), "inboundcall"))
+                    case "setParticipantData":
+                        for atribute in valor["attributes"]:
+                            name = atribute["attribute"]["name"]
+                            name_attribute = name["lit"] if hasattr(name, "lit") else name["exp"]
+                            lista.append(((name_attribute,'setParticipantData'), "inboundcall"))
+                    case "decision":
+                        if valor.get("outputs"):
+                            for saidas in valor["outputs"].values():
+                                if saidas.get("actions"):
+                                    for action in saidas["actions"]:
+                                        self.search_flow(action, lista)
+                    case "switch":
+                        evaluate_aux = valor["evaluate"]
+                        if evaluate_aux.get("firstTrue"):
+                            evaluate = evaluate_aux["firstTrue"]
+                        else:
+                            evaluate = evaluate_aux["firstMatch"]["string"]
+                        for case in evaluate["cases"]:
+                            if case["case"].get("actions"):
+                                for action in case["case"]["actions"]:
+                                    self.search_flow(action, lista)
+                        else:
+                            if evaluate.get("default"):
+                                default = evaluate["default"]
+                                if default.get("actions"):
+                                    for action in default["actions"]:
+                                        self.search_flow(action, lista)
+                    case "collectInput":
+                        if valor.get("outputs"):
+                            for saidas in valor["outputs"].values():
+                                if saidas.get("actions"):
+                                    for action in saidas["actions"]:
+                                        self.search_flow(action, lista)
+                    case "callData":
+                        if valor.get("outputs"):
+                            for saidas in valor["outputs"].values():
+                                if saidas.get("actions"):
+                                    for action in saidas["actions"]:
+                                        self.search_flow(action, lista)
+                    case "loop":
+                        if valor.get("outputs"):
+                            if valor["outputs"]["loop"].get("actions"):
+                                actions = valor["outputs"]["loop"]["actions"]
+                                for action in actions:
+                                    self.search_flow(action, lista)
+                    case _:
+                        continue
+            return lista
+        except Exception as erro:
+            raise Exception(f"Ocorreu um erro: {erro}\nAction: {action}")
+
     def get_dependencies(self, type_action: str) -> list:
         dados = []
         for task in self.tasks:
@@ -175,6 +235,8 @@ class InboundCall:
                         result = self.search_flow(action, list())
                     case "data_actions":
                         result = self.search_data_action(action, list())
+                    case "attributes":
+                        result = self.search_attribute(action, list())
                     case _:
                         pass
                 dados.extend(result)
@@ -342,16 +404,92 @@ class InboundShortMessage:
         except Exception as erro:
             raise Exception(f"Ocorreu um erro: {erro}\nAction: {action}")
 
+    def search_attribute(self, action, lista: list) -> list:
+        try:
+            for chave, valor in action.items():
+                match chave:
+                    case "getParticipantData":
+                        for atribute in valor["attributes"]:
+                            name = atribute["attribute"]["name"]
+                            name_attribute = name["lit"] if hasattr(name, "lit") else name["exp"]
+                            lista.append(((name_attribute,'getParticipantData'), "inboundcall"))
+                    case "setParticipantData":
+                        for atribute in valor["attributes"]:
+                            name = atribute["attribute"]["name"]
+                            name_attribute = name["lit"] if hasattr(name, "lit") else name["exp"]
+                            lista.append(((name_attribute,'setParticipantData'), "inboundcall"))
+                    case "decision":
+                        if valor.get("outputs"):
+                            for saidas in valor["outputs"].values():
+                                if saidas.get("actions"):
+                                    for action in saidas["actions"]:
+                                        self.search_flow(action, lista)
+                    case "switch":
+                        evaluate_aux = valor["evaluate"]
+                        if evaluate_aux.get("firstTrue"):
+                            evaluate = evaluate_aux["firstTrue"]
+                        else:
+                            evaluate = evaluate_aux["firstMatch"]["string"]
+                        for case in evaluate["cases"]:
+                            if case["case"].get("actions"):
+                                for action in case["case"]["actions"]:
+                                    self.search_flow(action, lista)
+                        else:
+                            if evaluate.get("default"):
+                                default = evaluate["default"]
+                                if default.get("actions"):
+                                    for action in default["actions"]:
+                                        self.search_flow(action, lista)
+                    case "collectInput":
+                        if valor.get("outputs"):
+                            for saidas in valor["outputs"].values():
+                                if saidas.get("actions"):
+                                    for action in saidas["actions"]:
+                                        self.search_flow(action, lista)
+                    case "callData":
+                        if valor.get("outputs"):
+                            for saidas in valor["outputs"].values():
+                                if saidas.get("actions"):
+                                    for action in saidas["actions"]:
+                                        self.search_flow(action, lista)
+                    case "loop":
+                        if valor.get("outputs"):
+                            if valor["outputs"]["loop"].get("actions"):
+                                actions = valor["outputs"]["loop"]["actions"]
+                                for action in actions:
+                                    self.search_flow(action, lista)
+                    case _:
+                        continue
+            return lista
+        except Exception as erro:
+            raise Exception(f"Ocorreu um erro: {erro}\nAction: {action}")
+        
     def get_dependencies(self, type_action: str) -> list:
         dados = []
         for task in self.tasks:
             for action in task.actions:
-                if type_action == "flows":
-                    result = self.search_flow(action, list())
-                elif type_action == "data_actions":
-                    result = self.search_data_action(action, list())
-                else:
-                    pass
+                match type_action:
+                    case "flows":
+                        result = self.search_flow(action, list())
+                    case "data_actions":
+                        result = self.search_data_action(action, list())
+                    case "attributes":
+                        result = self.search_attribute(action, list())
+                    case _:
+                        pass
+                dados.extend(result)
+
+        for state in self.states:
+            for action in state.actions:
+                match type_action:
+                    case "flows":
+                        result = self.search_flow(action, list())
+                    case "data_actions":
+                        result = self.search_data_action(action, list())
+                    case "attributes":
+                        result = self.search_attribute(action, list())
+                    case _:
+                        pass
                 dados.extend(result)
         return sorted(list(set(dados)))
 
