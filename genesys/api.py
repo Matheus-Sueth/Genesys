@@ -175,6 +175,31 @@ class Genesys:
         data = class_new()
         return data
 
+    def get_conversations_details_by_query(self, body: dict) -> object:
+        """
+        POST /api/v2/analytics/conversations/details/query \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        name_function = "get_conversations_details_by_query"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}",
+        }
+        response = requests.get(
+            url=f"https://{self.URL}/api/v2/analytics/conversations/details/query",
+            headers=headers,
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({body=}){content}"
+            raise Exception(erro)
+
+        class_new = json_for_class("ConversationsDetails", response.json())
+        data = class_new()
+        return data
+
     def update_attributes_by_conversationId_and_participantId(
         self, conversation_id: str, participant_id: str, body: dict
     ) -> object:
@@ -546,11 +571,52 @@ class Genesys:
         data = class_new()
         return data
 
-    def execute_data_action(
+    def test_data_action(
         self, data_action_id: str, body: dict, tempo_timeout: int = 60
     ) -> tuple[dict, str]:
         """
         GET /api/v2/integrations/actions/{actionId}/test \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        name_function = "teste_data_action"
+        try:
+            status = ""
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"bearer {self.token}",
+            }
+            response = requests.post(
+                url="https://"
+                + self.URL
+                + f"/api/v2/integrations/actions/{data_action_id}/test",
+                headers=headers,
+                data=json.dumps(body),
+                timeout=tempo_timeout,
+            )
+            status = response.status_code
+            data_action_name = f"teste_custom_{data_action_id}"
+            class_new = json_for_class(data_action_name, response.json())
+            dados = class_new()
+            if response.ok:
+                return (dados, "success")
+            elif status == 408 or status == 504:
+                return (dados, "timeout")
+            return (dados, "failure")
+        except requests.exceptions.ReadTimeout:
+            return ({}, "timeout")
+        except Exception as erro:
+            if not response.ok:
+                content = f"\nContent: {response.content}\n"
+                parameters = f"{data_action_id=}, {body=}, {tempo_timeout=}"
+                erro = f"{name_function}({parameters}){content}\n{erro}"
+                raise Exception(erro)
+
+    def execute_data_action(
+        self, data_action_id: str, body: dict, tempo_timeout: int = 60
+    ) -> tuple[dict, str]:
+        """
+        GET /api/v2/integrations/actions/{actionId}/execute \n
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
@@ -564,7 +630,7 @@ class Genesys:
             response = requests.post(
                 url="https://"
                 + self.URL
-                + f"/api/v2/integrations/actions/{data_action_id}/test",
+                + f"/api/v2/integrations/actions/{data_action_id}/execute",
                 headers=headers,
                 data=json.dumps(body),
                 timeout=tempo_timeout,
