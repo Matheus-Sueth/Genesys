@@ -186,7 +186,7 @@ class Genesys:
             "Content-Type": "application/json",
             "Authorization": f"bearer {self.token}",
         }
-        response = requests.get(
+        response = requests.post(
             url=f"https://{self.URL}/api/v2/analytics/conversations/details/query",
             headers=headers,
             data=json.dumps(body)
