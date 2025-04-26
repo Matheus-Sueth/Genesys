@@ -1291,3 +1291,52 @@ class Genesys:
                         return True
 
         return False
+
+    def get_execution_by_id(self, execution_id: str) -> object:
+        """
+        GET /api/v2/flows/executions/{executionId} \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        name_function = "get_execution_by_id"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}",
+        }
+        response = requests.get(
+            url=f"https://{self.URL}/api/v2/flows/executions/{execution_id}",
+            headers=headers,
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({execution_id=}){content}"
+            raise Exception(erro)
+
+        class_new = json_for_class("Execution", response.json())
+        data = class_new()
+        return data
+
+    def run_execution(self, body: dict) -> object:
+        """
+        POST /api/v2/flows/executions \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        name_function = "run_execution"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}",
+        }
+        response = requests.post(
+            url=f"https://{self.URL}/api/v2/flows/executions",
+            headers=headers,
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({body=}){content}"
+            raise Exception(erro)
+
+        class_new = json_for_class("RunExecution", response.json())
+        data = class_new()
+        return data
