@@ -1358,9 +1358,57 @@ class Genesys:
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
-            erro = f"{name_function}({user_id=}){content}"
+            erro = f"{name_function}({user_id=}, {workday=}){content}"
             raise Exception(erro)
 
         class_new = json_for_class("ScorecardsMetrics", response.json())
+        data = class_new()
+        return data
+    
+    def get_gamification_profile_by_user(self, user_id: str, workday: str) -> object:
+        """
+        GET /api/v2/gamification/profiles/users/{userId} \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        name_function = "get_gamification_profile_by_user"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}",
+        }
+        response = requests.get(
+            url=f"https://{self.URL}/api/v2/gamification/profiles/users/{user_id}?workday={workday}",
+            headers=headers,
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({user_id=}, {workday=}){content}"
+            raise Exception(erro)
+
+        class_new = json_for_class("GamificationProfile", response.json())
+        data = class_new()
+        return data
+    
+    def get_gamification_metric_by_profile(self, profile_id: str, metric_id: str) -> object:
+        """
+        GET /api/v2/gamification/profiles/{profileId}/metric/{metricId} \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        name_function = "get_gamification_metric_by_profile"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}",
+        }
+        response = requests.get(
+            url=f"https://{self.URL}/api/v2/gamification/profiles/{profile_id}/metrics/{metric_id}",
+            headers=headers,
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({profile_id=}, {metric_id=}){content}"
+            raise Exception(erro)
+
+        class_new = json_for_class("ProfileMetric", response.json())
         data = class_new()
         return data
