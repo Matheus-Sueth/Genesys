@@ -167,6 +167,23 @@ class Genesys:
             raise Exception(erro)
         return response.json()
     
+    def get_analytics_conversation_by_id(self, conversation_id: str) -> dict:
+        """
+        GET /api/v2/analytics/conversations/{conversationId} \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}"
+        }
+        response = requests.get(url=f'{self.URL}/api/v2/analytics/conversations/{conversation_id}/details', headers=headers)
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_analytics_conversation_by_id({conversation_id=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
     def get_conversations_details_by_query(self, body: dict) -> dict:
         """
         POST /api/v2/analytics/conversations/details/query \n
@@ -185,6 +202,102 @@ class Genesys:
         if not response.ok:
             content = f"\nContent: {response.content}\n"
             erro = f"get_conversations_details_by_query({body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def create_channel_notifications(self) -> dict:
+        """
+        POST /api/v2/notifications/channels \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}",
+        }
+        response = requests.post(
+            url=f"{self.URL}/api/v2/notifications/channels",
+            headers=headers
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"create_channel_notifications(){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def subscribe_topics_channel_notifications(self, channel_id: str, body: list[dict]) -> dict:
+        """
+        POST /api/v2/notifications/channels/{channelId}/subscriptions \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}",
+        }
+        response = requests.post(
+            url=f"{self.URL}/api/v2/notifications/channels/{channel_id}/subscriptions",
+            headers=headers,
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"subscribe_topics_channel_notifications({body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_availabletopics_notifications(self) -> dict:
+        """
+        GET /api/v2/notifications/availabletopics \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}"
+        }
+        response = requests.get(url=f'{self.URL}/api/v2/notifications/availabletopics', headers=headers)
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_availabletopics_notifications(){content}"
+            raise Exception(erro)
+        return response.json()
+
+    def get_channels_notifications(self) -> dict:
+        """
+        GET /api/v2/notifications/channels \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}"
+        }
+        response = requests.get(url=f'{self.URL}/api/v2/notifications/channels', headers=headers)
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_channels_notifications(){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def disconnect_interaction(self, conversation_id: str) -> dict:
+        """
+        POST /api/v2/conversations/{conversationId}/disconnect \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}"
+        }
+        response = requests.post(
+            url=f'{self.URL}/api/v2/conversations/{conversation_id}/disconnect', 
+            headers=headers,
+            data=json.dumps({})
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"disconnect_interaction({conversation_id=}){content}"
             raise Exception(erro)
         return response.json()
     
@@ -584,7 +697,28 @@ class Genesys:
             parameters = f"{data_action_id=}, {body=}, {tempo_timeout=}"
             erro = f"{name_function}({parameters}){content}\n{erro}"
             raise Exception(erro)
-            
+
+    def get_metrics_dataactions(self, body: dict) -> dict:
+        """
+        POST /api/v2/analytics/actions/aggregates/query \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"bearer {self.token}",
+        }
+        response = requests.post(
+            url=f"{self.URL}/api/v2/analytics/actions/aggregates/query",
+            headers=headers,
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_metrics_dataactions({body=}){content}"
+            raise Exception(erro)
+        return response.json()
+        
     def get_ivr_by_id(self, ivr_id: str) -> dict:
         """
         GET /api/v2/integrations/actions/{actionId}/test \n
