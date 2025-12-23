@@ -17,3 +17,7 @@ O projeto Genesys é uma ferramenta para gerenciar aplicação do Archy e as API
 Para instalar o projeto Genesys execute o seguinte comando:
 
         python setup.py install
+
+Ou
+
+        pip install git+https://github.com/Matheus-Sueth/Genesys.git@main
