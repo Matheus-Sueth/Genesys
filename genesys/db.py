@@ -1,4 +1,34 @@
+from __future__ import annotations
 import sqlite3
+from dataclasses import dataclass
+
+
+@dataclass
+class RelacaoAPI:
+    id: int
+    empresa_id: int
+    id_hml: int
+    id_prd: int
+
+
+@dataclass
+class DataScript:
+    script_point: str
+    empresa_id: int
+    name: str
+    state_or_task: str
+    update_data_name: str
+    name_variable: str
+
+
+@dataclass
+class Empresas:
+    id: int
+    cliente: str
+    qtd_uras: int
+    qtd_bots: int
+    qtd_webchat: int
+
 
 def db_connection(func):
     def wrapper(self, *args, **kwargs):
@@ -66,4 +96,19 @@ class Database:
     def delete_data_flow(self, condition: str) -> None:
         self.cursor.execute(f"DELETE FROM data_flow {condition}")
 
-database_mutant = Database('')
+    @db_connection    
+    def insert_into_data_action(self, empresa_id: int, name: str, description: str, integrationId: str, category: str, properties_output:str, properties_input:str, request_url:str, request_type:str, request_headers:str, request_body:str, response:str, flow_id: str, flow_deleted: str, ura: str, state: str) -> None:
+        self.cursor.execute(f"INSERT INTO data_action VALUES ('{empresa_id}', {name}', {description}', {integrationId}', {category}', {properties_output}', {properties_input}', {request_url}', {request_type}', {request_headers}', {request_body}', {response}', {flow_id}', {flow_deleted}', '{ura}', '{state}')")
+
+    @db_connection
+    def select_data_action(self, colunas: str = '*', condition: str = '') -> list:
+        result = self.cursor.execute(f"SELECT {colunas} FROM data_action {condition}")
+        return result.fetchall()
+
+    @db_connection    
+    def update_data_action(self, data: str, condition: str) -> None:
+        self.cursor.execute(f"UPDATE data_action SET {data} {condition}")
+
+    @db_connection    
+    def delete_data_action(self, condition: str) -> None:
+        self.cursor.execute(f"DELETE FROM data_action {condition}")
