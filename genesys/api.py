@@ -5,87 +5,193 @@ import json
 from dotenv import load_dotenv, dotenv_values
 import time
 import re
+from datetime import datetime, timedelta
+from dataclasses import dataclass
+from typing import Protocol, Optional, Dict, Any, Tuple
 
 load_dotenv()
 
-class Genesys:
-    ALLOWED_REGION_SUFFIXES = {
-        # North America
-        "mypurecloud.com",          # US (domínio legado/alternativo)
-        "use1.pure.cloud",          # US East
-        "usw2.pure.cloud",          # US West
-        "use2.us-gov-pure.cloud",   # FedRAMP
-        "cac1.pure.cloud",          # Canada
-        "mxc1.pure.cloud",          # Mexico
 
-        # South America
-        "sae1.pure.cloud",          # São Paulo
+@dataclass(frozen=True)
+class GenesysRegion:
+    """Deriva URLs base a partir do sufixo (ex: sae1.pure.cloud)."""
+    suffix: str
 
-        # Asia Pacific
-        "apse2.pure.cloud",         # Sydney
-        "mypurecloud.com.au",       # Sydney (alternativo)
-        "apne1.pure.cloud",         # Tokyo
-        "mypurecloud.jp",           # Tokyo (alternativo)
-        "apne2.pure.cloud",         # Seoul
-        "aps1.pure.cloud",          # Mumbai
-        "apne3.pure.cloud",         # Osaka
-        "apse1.pure.cloud",         # Singapore
+    @property
+    def url_auth(self) -> str:
+        return f"https://login.{self.suffix}"
 
-        # Satellite media regions (listadas como satélite na doc)
-        "ape1.pure.cloud",          # Hong Kong (satélite)
-        "apse3.pure.cloud",         # Jakarta (satélite)
+    @property
+    def url_api(self) -> str:
+        return f"https://api.{self.suffix}"
 
-        # EMEA
-        "euw1.pure.cloud",          # Ireland
-        "mypurecloud.ie",           # Ireland (alternativo)
-        "euc1.pure.cloud",          # Frankfurt
-        "mypurecloud.de",           # Frankfurt (alternativo)
-        "euw2.pure.cloud",          # London
-        "euc2.pure.cloud",          # Zurich
-        "mec1.pure.cloud",          # UAE
 
-        # Satellite media regions (EMEA)
-        "afs1.pure.cloud",          # Cape Town (satélite)
-        "euw3.pure.cloud",          # Paris (satélite)
-    }
+class TokenProvider(Protocol):
+    """Qualquer OAuth que você suportar precisa entregar um access token válido."""
+    def get_access_token(self) -> str: ...
+    def token_info(self) -> Dict[str, Any]: ...
 
-    def normalize_region(self, region: str) -> str:
-        region_lower = (region or "").strip().lower()
 
-        # remove esquema, se vier URL completa
-        r = region_lower.removeprefix("https://").removeprefix("http://")
+@dataclass(frozen=True)
+class ClientCredentialsKey:
+    region_suffix: str
+    client_id: str
 
-        # remove caminhos, se existirem
-        r = r.split("/", 1)[0]
 
-        # remove prefixos comuns (api/login/apps/journey-websockets)
-        for prefix in ("api.", "login.", "apps.", "journey-websockets."):
-            if r.startswith(prefix):
-                r = r[len(prefix):]
-                break
+class ClientCredentialsTokenProvider(TokenProvider):
+    """
+    Singleton por (region_suffix, client_id).
+    Cacheia token e renova quando expira.
+    """
+    _instances: Dict[ClientCredentialsKey, "ClientCredentialsTokenProvider"] = {}
 
-        if r not in self.ALLOWED_REGION_SUFFIXES:
-            raise ValueError(f"Region inválida: {region}. Permitidas: {sorted(self.ALLOWED_REGION_SUFFIXES)}")
+    def __new__(cls, key: ClientCredentialsKey, client_secret: str) -> "ClientCredentialsTokenProvider":
+        if key not in cls._instances:
+            inst = super().__new__(cls)
+            cls._instances[key] = inst
+        return cls._instances[key]
 
-        return r
+    def __init__(self, key: ClientCredentialsKey, client_secret: str) -> None:
+        # __init__ pode ser chamado várias vezes no singleton
+        if getattr(self, "_initialized", False):
+            return
+        self._initialized = True
 
-    def __init__(self, client_id: str, client_secret: str, region: str) -> None:
-        region_suffix = self.normalize_region(region)
-        self.URL_AUTH = f"https://login.{region_suffix}"
-        self.URL = f"https://api.{region_suffix}"
-        self.CLIENT_ID = client_id
-        self.CLIENT_SECRET = client_secret
-        self.token = self.get_token()
-        information_token = self.get_information_token()
-        self.organization = information_token["organization"]
-        
-    def __new__(cls, *args):
-        if not hasattr(cls, 'instance'):
-            cls.instance = super(Genesys, cls).__new__(cls)
-        return cls.instance
+        self.key = key
+        self.client_secret = client_secret
+        self.region = GenesysRegion(key.region_suffix)
+
+        self._session = requests.Session()
+        self._access_token: str = ""
+        self._expires_at_epoch: int = 0
+        self._raw: Dict[str, Any] = {}
+
+    def get_access_token(self) -> str:
+        now = int(time.time())
+        if self._access_token and now < (self._expires_at_epoch - 30):
+            return self._access_token
+
+        token = self._request_token_client_credentials()
+        self._raw = token
+
+        self._access_token = token["access_token"]
+        expires_in = int(token.get("expires_in", 0))
+        self._expires_at_epoch = now + expires_in
+
+        return self._access_token
+
+    def token_info(self) -> Dict[str, Any]:
+        return dict(self._raw)
+
+    def _request_token_client_credentials(self) -> Dict[str, Any]:
+        response = self._session.post(
+            f"{self.region.url_auth}/oauth/token",
+            data={"grant_type": "client_credentials"},
+            auth=(self.key.client_id, self.client_secret),
+            timeout=60,
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"_request_token_client_credentials(){content}"
+            raise Exception(erro)
+        return response.json()
+
+
+@dataclass(frozen=True)
+class PkceConfig:
+    region_suffix: str
+    oauth_client_id: str
+    redirect_uri: str
+
+
+class PkceTokenProvider(TokenProvider):
+    """
+    Sem TokenStore por enquanto:
+    - você injeta tokens (dict) após o callback
+    - se expirar, você decide depois como refrescar/persistir
+    """
+    def __init__(self, cfg: PkceConfig, tokens: Optional[Dict[str, Any]] = None) -> None:
+        self.cfg = cfg
+        self.region = GenesysRegion(cfg.region_suffix)
+        self._session = requests.Session()
+
+        self._raw: Dict[str, Any] = {}
+        self._access_token: Optional[str] = None
+        self._expires_at_epoch: int = 0
+
+        if tokens:
+            self.set_tokens(tokens)
+
+    def set_tokens(self, tokens: Dict[str, Any]) -> None:
+        """
+        Você chama isto no /auth/callback (depois do exchange code->token),
+        ou quando carregar tokens de outro lugar no futuro.
+        """
+        now = int(time.time())
+        self._raw = dict(tokens)
+
+        self._access_token = tokens.get("access_token")
+        expires_in = int(tokens.get("expires_in", 0))
+        self._expires_at_epoch = now + expires_in
+
+    def exchange_code_for_token(self, code: str, code_verifier: str) -> Dict[str, Any]:
+        """
+        Chamado no callback: troca authorization code por token e armazena em memória.
+        """
+        response = self._session.post(
+            f"{self.region.url_auth}/oauth/token",
+            data={
+                "grant_type": "authorization_code",
+                "client_id": self.cfg.oauth_client_id,
+                "redirect_uri": self.cfg.redirect_uri,
+                "code": code,
+                "code_verifier": code_verifier,
+            },
+            timeout=60,
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"exchange_code_for_token({code=}, {code_verifier=}){content}"
+            raise Exception(erro)
+
+        try:
+            token = response.json()
+            self.set_tokens(token)
+            return token
+        except ValueError:
+            raise Exception(f"Resposta não-JSON em {response.url}: {response.text[:500]}")
+
+    def get_access_token(self) -> str:
+        if not self._access_token:
+            raise RuntimeError("PKCE: access_token ausente. Complete login/callback antes de chamar APIs.")
+
+        now = int(time.time())
+        if now >= (self._expires_at_epoch - 30):
+            # Sem store/refresh por enquanto — você decide depois.
+            raise RuntimeError("PKCE: token expirado (refresh/persistência será implementado depois).")
+
+        return self._access_token
+
+    def token_info(self) -> Dict[str, Any]:
+        return dict(self._raw)
     
+
+class Genesys:
+    def __init__(self, region_suffix: str, token_provider: TokenProvider) -> None:
+        self.region = GenesysRegion(region_suffix)
+        self.URL_AUTH = self.region.url_auth
+        self.URL = self.region.url_api
+        self.token_provider = token_provider
+        self.information_token = self.get_information_token()
+        
     def __str__(self) -> str:
-        return f"Genesys(org: {self.organization["name"]})"
+        return f"Genesys(org: {self.information_token['organization']['name']}, user: {self.information_token['OAuthClient']['name']})"
+    
+    def auth_headers(self) -> Dict[str, str]:
+        return {
+            "Authorization": f"Bearer {self.token_provider.get_access_token()}",
+            "Content-Type": "application/json",
+        }
     
     def _check_and_update_token(self):
         """
@@ -104,71 +210,34 @@ class Genesys:
         | The maximum number of requests per token per minute
         | 300
         """
-        if time.time() - self._last_reset_time >= 60:
-            self._call_count = 0
-            self._last_reset_time = time.time()
-
-        if self._call_count >= 3000:
-            print("Atingido o limite de chamadas. Aguarde um minuto...")
-            time.sleep(60)
-            self._call_count = 0
-            self._last_reset_time = time.time()
-            self.update_token()
-        else:
-            self._call_count += 1
-
-    def get_token(self) -> str:
-        authorization = base64.b64encode(bytes(self.CLIENT_ID + ":" + self.CLIENT_SECRET, "ISO-8859-1")).decode("ascii")
-
-        request_headers = {
-            "Authorization": f"Basic {authorization}",
-            "Content-Type": "application/x-www-form-urlencoded"
-        }
-        request_body = {
-            "grant_type": "client_credentials"
-        }
-
-        response = requests.post(f"{self.URL_AUTH}/oauth/token", data=request_body, headers=request_headers)
-        if not response.ok:
-            content = f"\nContent: {response.content}\n"
-            erro = f"update_token(){content}"
-            raise Exception(erro)
-        response_json = response.json()
-        return response_json['access_token']
+        pass
     
-    def update_token(self) -> None:
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}"
-        }
-        response = requests.head(url=f"{self.URL}/api/v2/tokens/me", headers=headers)
+    def delete_token_me(self) -> None:
+        url = f"https://api.{self.URL}/api/v2/tokens/me"
+        response = requests.delete(url, headers=self.auth_headers())
         if not response.ok:
             content = f"\nContent: {response.content}\n"
-            erro = f"update_token(){content}"
+            erro = f"delete_token_me(){content}"
             raise Exception(erro)
-        return None
 
-    def check_token(self) -> None:
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}"
-        }
-        response = requests.head(url=f'{self.URL}/api/v2/tokens/me', headers=headers)
-        if not response.ok:
-            content = f"\nContent: {response.content}\n"
-            erro = f"check_token(){content}"
-            raise Exception(erro)
-        return None
-        
     def get_information_token(self) -> dict:
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}"
-        }
-        response = requests.get(url=f'{self.URL}/api/v2/tokens/me', headers=headers)
+        response = requests.get(url=f'{self.URL}/api/v2/tokens/me', headers=self.auth_headers())
         if not response.ok:
             content = f"\nContent: {response.content}\n"
             erro = f"get_information_token(){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_user_by_token(self, expand: str = "routingStatus,presence,organization,dateLastLogin,integrationPresence,presence,routingskills,routinglanguages,token,groups") -> dict:
+        """
+        GET /api/v2/users/me \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.get(url=f'{self.URL}/api/v2/users/me?expand={expand}', headers=self.auth_headers())
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_user_by_token({expand=}){content}"
             raise Exception(erro)
         return response.json()
 
@@ -178,11 +247,7 @@ class Genesys:
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}"
-        }
-        response = requests.get(url=f'{self.URL}/api/v2/conversations/{conversation_id}', headers=headers)
+        response = requests.get(url=f'{self.URL}/api/v2/conversations/{conversation_id}', headers=self.auth_headers())
         if not response.ok:
             content = f"\nContent: {response.content}\n"
             erro = f"get_conversation_by_id({conversation_id=}){content}"
@@ -195,11 +260,7 @@ class Genesys:
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}"
-        }
-        response = requests.get(url=f'{self.URL}/api/v2/analytics/conversations/{conversation_id}/details', headers=headers)
+        response = requests.get(url=f'{self.URL}/api/v2/analytics/conversations/{conversation_id}/details', headers=self.auth_headers())
         if not response.ok:
             content = f"\nContent: {response.content}\n"
             erro = f"get_analytics_conversation_by_id({conversation_id=}){content}"
@@ -212,13 +273,9 @@ class Genesys:
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.post(
             url=f"{self.URL}/api/v2/analytics/conversations/details/query",
-            headers=headers,
+            headers=self.auth_headers(),
             data=json.dumps(body)
         )
         if not response.ok:
@@ -233,13 +290,9 @@ class Genesys:
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.post(
             url=f"{self.URL}/api/v2/notifications/channels",
-            headers=headers
+            headers=self.auth_headers()
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -253,13 +306,9 @@ class Genesys:
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.post(
             url=f"{self.URL}/api/v2/notifications/channels/{channel_id}/subscriptions",
-            headers=headers,
+            headers=self.auth_headers(),
             data=json.dumps(body)
         )
         if not response.ok:
@@ -274,11 +323,7 @@ class Genesys:
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}"
-        }
-        response = requests.get(url=f'{self.URL}/api/v2/notifications/availabletopics', headers=headers)
+        response = requests.get(url=f'{self.URL}/api/v2/notifications/availabletopics', headers=self.auth_headers())
         if not response.ok:
             content = f"\nContent: {response.content}\n"
             erro = f"get_availabletopics_notifications(){content}"
@@ -291,11 +336,7 @@ class Genesys:
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}"
-        }
-        response = requests.get(url=f'{self.URL}/api/v2/notifications/channels', headers=headers)
+        response = requests.get(url=f'{self.URL}/api/v2/notifications/channels', headers=self.auth_headers())
         if not response.ok:
             content = f"\nContent: {response.content}\n"
             erro = f"get_channels_notifications(){content}"
@@ -308,13 +349,9 @@ class Genesys:
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}"
-        }
         response = requests.post(
             url=f'{self.URL}/api/v2/conversations/{conversation_id}/disconnect', 
-            headers=headers,
+            headers=self.auth_headers(),
             data=json.dumps({})
         )
         if not response.ok:
@@ -332,10 +369,6 @@ class Genesys:
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.token}",
-        }
         payload = json.dumps(body)
         url = (
             f"{self.URL}/api/v2/conversations/{conversation_id}"
@@ -343,7 +376,7 @@ class Genesys:
         )
         response = requests.patch(
             url=url,
-            headers=headers,
+            headers=self.auth_headers(),
             data=payload,
         )
         if not response.ok:
@@ -368,10 +401,6 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_user_prompt_by_name_or_description"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         parameters = {
             "pageNumber": page_number,
             "pageSize": page_size,
@@ -385,7 +414,7 @@ class Genesys:
         response = requests.get(
             url=f"{self.URL}/api/v2/architect/prompts",
             params=parameters,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -408,10 +437,6 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_user_prompts"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         parameters = {
             "pageNumber": page_number,
             "pageSize": page_size,
@@ -425,7 +450,7 @@ class Genesys:
         response = requests.get(
             url=f"{self.URL}/api/v2/architect/prompts",
             params=parameters,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -448,10 +473,6 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_system_prompts"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         parameters = {
             "pageNumber": page_number,
             "pageSize": page_size,
@@ -465,7 +486,7 @@ class Genesys:
         response = requests.get(
             url=f"{self.URL}/api/v2/architect/systemprompts",
             params=parameters,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -488,10 +509,6 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_system_prompt_by_name_or_description"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         parameters = {
             "pageNumber": page_number,
             "pageSize": page_size,
@@ -505,7 +522,7 @@ class Genesys:
         response = requests.get(
             url=f"{self.URL}/api/v2/architect/systemprompts",
             params=parameters,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -526,10 +543,6 @@ class Genesys:
         Content-Type: application/json \n
         """
         name_function = "get_data_table_by_name"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         parameters = {
             "name": name,
             "pageNumber": page_number,
@@ -539,7 +552,7 @@ class Genesys:
         response = requests.get(
             url=f"{self.URL}/api/v2/flows/datatables/divisionviews",
             params=parameters,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -560,10 +573,6 @@ class Genesys:
         Content-Type: application/json \n
         """
         name_function = "get_data_tables"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         parameters = {
             "name": name,
             "pageNumber": page_number,
@@ -573,7 +582,7 @@ class Genesys:
         response = requests.get(
             url=f"{self.URL}/api/v2/flows/datatables/divisionviews",
             params=parameters,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -592,16 +601,12 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_row_data_table_by_id"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         parameters = {"showbrief": True}
         url = f"{self.URL}/api/v2/flows/datatables/{data_table_id}/rows/{row_id}"
         response = requests.get(
             url=url,
             params=parameters,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -623,10 +628,6 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_data_action_by_name"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         parameters = {
             "pageNumber": page_number,
             "pageSize": page_size,
@@ -636,7 +637,7 @@ class Genesys:
         response = requests.get(
             url=f"{self.URL}/api/v2/integrations/actions",
             params=parameters,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -656,13 +657,9 @@ class Genesys:
         response = None
         try:
             status = ""
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"bearer {self.token}",
-            }
             response = requests.post(
                 url=f"{self.URL}/api/v2/integrations/actions/{data_action_id}/test",
-                headers=headers,
+                headers=self.auth_headers(),
                 data=json.dumps(body),
                 timeout=tempo_timeout,
             )
@@ -694,13 +691,9 @@ class Genesys:
         response = None
         try:
             status = ""
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"bearer {self.token}",
-            }
             response = requests.post(
                 url=f"{self.URL}/api/v2/integrations/actions/{data_action_id}/execute",
-                headers=headers,
+                headers=self.auth_headers(),
                 data=json.dumps(body),
                 timeout=tempo_timeout,
             )
@@ -726,13 +719,9 @@ class Genesys:
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
-        headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"bearer {self.token}",
-        }
         response = requests.post(
             url=f"{self.URL}/api/v2/analytics/actions/aggregates/query",
-            headers=headers,
+            headers=self.auth_headers(),
             data=json.dumps(body)
         )
         if not response.ok:
@@ -748,13 +737,9 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_ivr_by_id"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.get(
             url=f"{self.URL}/api/v2/architect/ivrs/{ivr_id}",
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -777,10 +762,6 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_ivrs"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         parameters = {
             "pageNumber": page_number,
             "pageSize": page_size,
@@ -792,7 +773,7 @@ class Genesys:
         }
         response = requests.get(
             url=f"{self.URL}/api/v2/architect/ivrs",
-            headers=headers,
+            headers=self.auth_headers(),
             params=parameters,
         )
         if not response.ok:
@@ -808,10 +789,6 @@ class Genesys:
         Content-Type: application/json \n
         """
         name_function = "get_did_pool_by_number"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         parameters = {
             "numberMatch": number_match,
             "type": "ASSIGNED_AND_UNASSIGNED",
@@ -819,7 +796,7 @@ class Genesys:
         url = f"{self.URL}/api/v2/telephony/providers/edges/didpools/dids"
         response = requests.get(
             url=url,
-            headers=headers,
+            headers=self.auth_headers(),
             params=parameters,
         )
         if not response.ok:
@@ -835,12 +812,8 @@ class Genesys:
         Content-Type: application/json \n
         """
         name_function = "get_flow_by_id"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.get(
-            url=f"{self.URL}/api/v2/flows/{flow_id}", headers=headers
+            url=f"{self.URL}/api/v2/flows/{flow_id}", headers=self.auth_headers()
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -862,10 +835,6 @@ class Genesys:
         Content-Type: application/json \n
         """
         name_function = "get_flows"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         parameters = {
             "pageNumber": page_number,
             "pageSize": page_size,
@@ -877,7 +846,7 @@ class Genesys:
         }
         response = requests.get(
             url=f"{self.URL}/api/v2/flows",
-            headers=headers,
+            headers=self.auth_headers(),
             params=parameters,
         )
         if not response.ok:
@@ -895,10 +864,6 @@ class Genesys:
         Content-Type: application/json \n
         """
         name_function = "get_flow_by_name"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         parameters = {
             "pageNumber": page_number,
             "pageSize": page_size,
@@ -906,7 +871,7 @@ class Genesys:
         }
         response = requests.get(
             url=f"{self.URL}/api/v2/flows",
-            headers=headers,
+            headers=self.auth_headers(),
             params=parameters,
         )
         if not response.ok:
@@ -922,14 +887,10 @@ class Genesys:
         Content-Type: application/json \n
         """
         name_function = "create_new_user_prompt"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         body = {"name": name, "description": description}
         response = requests.post(
             url=f"{self.URL}/api/v2/architect/prompts",
-            headers=headers,
+            headers=self.auth_headers(),
             data=json.dumps(body),
         )
         if not response.ok:
@@ -947,15 +908,11 @@ class Genesys:
         Content-Type: application/json \n
         """
         name_function = "create_new_user_prompt_resource"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         body = {"language": language, "ttsString": ttsString, "text": text}
         url = f"{self.URL}/api/v2/architect/prompts/{prompt_id}/resources"
         response = requests.post(
             url=url,
-            headers=headers,
+            headers=self.auth_headers(),
             data=json.dumps(body),
         )
         if not response.ok:
@@ -992,13 +949,12 @@ class Genesys:
         name_function = "upload_user_prompt_resource_by_url"
         response = None
         try:
-            headers = {"Authorization": f"bearer {self.token}"}
             wav_form_data = {"file": (file_name, open(file_path, "rb"))}
 
             response = requests.post(
                 upload_url,
                 files=wav_form_data,
-                headers=headers,
+                headers=self.auth_headers(),
             )
             if not response.ok:
                 content = f"\nContent: {response.content}\n"
@@ -1043,14 +999,10 @@ class Genesys:
             "expand": ["authorization", "team"],
             "enforcePermissions": True,
         }
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.post(
             url=f"{self.URL}/api/v2/users/search",
             data=json.dumps(body),
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -1087,14 +1039,10 @@ class Genesys:
             "expand": ["images", "authorization", "team"],
             "enforcePermissions": True,
         }
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.post(
             url=f"{self.URL}/api/v2/users/search",
             data=json.dumps(body),
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -1112,14 +1060,10 @@ class Genesys:
         """
         name_function = "set_new_password_for_user_by_user_id"
         body = {"newPassword": new_password}
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.post(
             url=f"{self.URL}/api/v2/users/{user_id}/password",
             data=json.dumps(body),
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -1137,14 +1081,10 @@ class Genesys:
         """
         name_function = "get_recipients_routing"
         parameters = {"pageNumber": page_number, "pageSize": page_size}
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.get(
             url=f"{self.URL}/api/v2/routing/message/recipients",
             params=parameters,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -1176,14 +1116,10 @@ class Genesys:
         """
         name_function = "checkin_flow_by_id"
         parameters = {"flow": flow_id}
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.post(
             url=f"{self.URL}/api/v2/flows/actions/checkin",
             params=parameters,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -1199,14 +1135,10 @@ class Genesys:
         """
         name_function = "checkout_flow_by_id"
         parameters = {"flow": flow_id}
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.post(
             url=f"{self.URL}/api/v2/flows/actions/checkout",
             params=parameters,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -1222,14 +1154,10 @@ class Genesys:
         """
         name_function = "publish_flow_by_id"
         parameters = {"flow": flow_id}
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.post(
             url=f"{self.URL}/api/v2/flows/actions/publish",
             params=parameters,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -1279,14 +1207,10 @@ class Genesys:
         Content-Type: application/json \n
         """
         name_function = "get_last_configuration_flow_by_id"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         url = f"{self.URL}/api/v2/flows/{flow_id}/latestConfiguration"
         response = requests.get(
             url=url,
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -1352,13 +1276,9 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_execution_by_id"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.get(
             url=f"{self.URL}/api/v2/flows/executions/{execution_id}",
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -1373,13 +1293,9 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "run_execution"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.post(
             url=f"{self.URL}/api/v2/flows/executions",
-            headers=headers,
+            headers=self.auth_headers(),
             data=json.dumps(body)
         )
         if not response.ok:
@@ -1395,13 +1311,9 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_gamification_scorecards_by_user"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.get(
             url=f"{self.URL}/api/v2/gamification/scorecards/users/{user_id}?workday={workday}&expand=objective",
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -1416,13 +1328,9 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_gamification_profile_by_user"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.get(
             url=f"{self.URL}/api/v2/gamification/profiles/users/{user_id}?workday={workday}",
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -1437,13 +1345,9 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_gamification_metric_by_profile"
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"bearer {self.token}",
-        }
         response = requests.get(
             url=f"{self.URL}/api/v2/gamification/profiles/{profile_id}/metrics/{metric_id}",
-            headers=headers,
+            headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"

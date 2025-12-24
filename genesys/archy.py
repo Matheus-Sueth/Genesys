@@ -173,12 +173,10 @@ class FileYaml:
 class Archy:
     padrao = re.compile(r"_v\d+-\d+\.yaml$")
 
-    def __init__(self, client_id: str, client_secret: str, region: str) -> None:
-        self.api = Genesys(client_id, client_secret, region)
-        self.LOCATION = region
-        self.CLIENT_ID = client_id
-        self.CLIENT_SECRET = client_secret
-        
+    def __init__(self, genesys: Genesys) -> None:
+        self.api = genesys
+        self.location = genesys.region.suffix
+        self.token = self.api.token_provider.get_access_token()
 
     def __new__(cls, *args):
         if not hasattr(cls, "instance"):
@@ -225,9 +223,7 @@ class Archy:
         cmd = (
             f'archy export --flowName "{flow_name}" --flowType {flow_type} '
             f'--flowVersion {flow_version} --outputDir "{output_dir}" '
-            "--exportType yaml --authTokenIsClientCredentials true "
-            f"--clientId {self.CLIENT_ID} --clientSecret {self.CLIENT_SECRET}"
-            f" --location {self.LOCATION}"
+            f'--exportType yaml --authToken "{self.token}" --location {self.location}" '
         )
         file_flow, result_error, dict_dados = None, None, None
         try:
@@ -284,10 +280,8 @@ class Archy:
                 )["total"] == 0
             ]
             cmd = (
-                f'archy publish --file "{flow_file}"'
-                f" --clientId {self.CLIENT_ID}"
-                f" --clientSecret {self.CLIENT_SECRET}"
-                f" --location {self.LOCATION}"
+                f'archy publish --file "{flow_file}" '
+                f'--authToken "{self.token}" --location {self.location}'
             )
             results, error = subprocess.Popen(
                 [
@@ -338,10 +332,8 @@ class Archy:
             file_flow.flow.description = description
             file_flow.save_yaml_to_file()
             cmd = (
-                f'archy publish --file "{flow_file_name}"'
-                f" --clientId {self.CLIENT_ID}"
-                f" --clientSecret {self.CLIENT_SECRET}"
-                f"  --location {self.LOCATION}"
+                f'archy publish --file "{flow_file_name}" '
+                f'--authToken "{self.token}" --location {self.location}'
             )
             results, error = subprocess.Popen(
                 [
