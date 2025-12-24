@@ -2,7 +2,7 @@ import requests
 import base64
 import os
 import json
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 import time
 import re
 
@@ -76,11 +76,16 @@ class Genesys:
         self.CLIENT_ID = client_id
         self.CLIENT_SECRET = client_secret
         self.token = self.get_token()
+        information_token = self.get_information_token()
+        self.organization = information_token["organization"]
         
     def __new__(cls, *args):
         if not hasattr(cls, 'instance'):
             cls.instance = super(Genesys, cls).__new__(cls)
         return cls.instance
+    
+    def __str__(self) -> str:
+        return f"Genesys(org: {self.organization["name"]})"
     
     def _check_and_update_token(self):
         """
@@ -124,12 +129,12 @@ class Genesys:
         }
 
         response = requests.post(f"{self.URL_AUTH}/oauth/token", data=request_body, headers=request_headers)
-
-        if response.status_code == 200:
-            response_json = response.json()
-            return response_json['access_token']
-        else:
-            raise Exception(f"Failure: {response.status_code} - {response.reason}")
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"update_token(){content}"
+            raise Exception(erro)
+        response_json = response.json()
+        return response_json['access_token']
     
     def update_token(self) -> None:
         headers = {
@@ -137,8 +142,10 @@ class Genesys:
             "Authorization": f"bearer {self.token}"
         }
         response = requests.head(url=f"{self.URL}/api/v2/tokens/me", headers=headers)
-        if response.status_code != 200:
-            raise Exception(f'Token Genesys inválido, failure: {response.status_code} - {response.reason}')
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"update_token(){content}"
+            raise Exception(erro)
         return None
 
     def check_token(self) -> None:
@@ -148,7 +155,22 @@ class Genesys:
         }
         response = requests.head(url=f'{self.URL}/api/v2/tokens/me', headers=headers)
         if not response.ok:
-            raise Exception(f'Token Genesys inválido, failure: {response.status_code} - {response.reason}')
+            content = f"\nContent: {response.content}\n"
+            erro = f"check_token(){content}"
+            raise Exception(erro)
+        return None
+        
+    def get_information_token(self) -> dict:
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.token}"
+        }
+        response = requests.get(url=f'{self.URL}/api/v2/tokens/me', headers=headers)
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_information_token(){content}"
+            raise Exception(erro)
+        return response.json()
 
     def get_conversation_by_id(self, conversation_id: str) -> dict:
         """
