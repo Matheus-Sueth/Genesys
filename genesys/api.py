@@ -81,7 +81,9 @@ class ClientCredentialsTokenProvider(TokenProvider):
         return self._access_token
 
     def token_info(self) -> Dict[str, Any]:
-        return dict(self._raw)
+        info = dict(self._raw)
+        info["type"] = "ClientCredentials"
+        return info
 
     def _request_token_client_credentials(self) -> Dict[str, Any]:
         response = self._session.post(
@@ -173,7 +175,9 @@ class PkceTokenProvider(TokenProvider):
         return self._access_token
 
     def token_info(self) -> Dict[str, Any]:
-        return dict(self._raw)
+        info = dict(self._raw)
+        info["type"] = "Pkce"
+        return info
     
 
 class Genesys:
@@ -256,7 +260,7 @@ class Genesys:
     
     def get_analytics_conversation_by_id(self, conversation_id: str) -> dict:
         """
-        GET /api/v2/analytics/conversations/{conversationId} \n
+        GET /api/v2/analytics/conversations/{conversationId}/details \n
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
@@ -970,86 +974,6 @@ class Genesys:
             erro = f"{name_function}({parameters}){content}\n{error}"
             raise Exception(erro)
 
-    def get_user_by_name(
-        self, user_name: str, page_number: int = 1, page_size: int = 20
-    ) -> dict:
-        """
-        POST /api/v2/users/search HTTP/1.1 \n
-        Authorization: Bearer ****************** \n
-        Content-Type: application/json
-        """
-        name_function = "get_user_by_name"
-        body = {
-            "pageSize": page_size,
-            "pageNumber": page_number,
-            "query": [
-                {
-                    "type": "EXACT",
-                    "fields": ["state"],
-                    "values": ["active", "inactive"],
-                },
-                {
-                    "type": "QUERY_STRING",
-                    "fields": ["name"],
-                    "value": user_name,
-                },
-            ],
-            "sortOrder": "ASC",
-            "sortBy": "name",
-            "expand": ["authorization", "team"],
-            "enforcePermissions": True,
-        }
-        response = requests.post(
-            url=f"{self.URL}/api/v2/users/search",
-            data=json.dumps(body),
-            headers=self.auth_headers(),
-        )
-        if not response.ok:
-            content = f"\nContent: {response.content}\n"
-            erro = f"{name_function}({body=}){content}"
-            raise Exception(erro)
-        return response.json()
-
-    def get_user_by_email(
-        self, user_email: str, page_number: int = 1, page_size: int = 20
-    ) -> dict:
-        """
-        POST /api/v2/users/search HTTP/1.1 \n
-        Authorization: Bearer ****************** \n
-        Content-Type: application/json
-        """
-        name_function = "get_user_by_email"
-        body = {
-            "pageSize": page_size,
-            "pageNumber": page_number,
-            "query": [
-                {
-                    "type": "EXACT",
-                    "fields": ["state"],
-                    "values": ["active", "inactive"],
-                },
-                {
-                    "type": "QUERY_STRING",
-                    "fields": ["email"],
-                    "value": user_email,
-                },
-            ],
-            "sortOrder": "ASC",
-            "sortBy": "name",
-            "expand": ["images", "authorization", "team"],
-            "enforcePermissions": True,
-        }
-        response = requests.post(
-            url=f"{self.URL}/api/v2/users/search",
-            data=json.dumps(body),
-            headers=self.auth_headers(),
-        )
-        if not response.ok:
-            content = f"\nContent: {response.content}\n"
-            erro = f"{name_function}({body=}){content}"
-            raise Exception(erro)
-        return response.json()
-
     def set_new_password_for_user_by_user_id(
         self, user_id: str, new_password: str
     ) -> None:
@@ -1355,3 +1279,192 @@ class Genesys:
             raise Exception(erro)
         return response.json()
 
+    def get_attributes_conversations_by_query(self, body: dict) -> dict:
+        """
+        POST /api/v2/conversations/participants/attributes/search \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.post(
+            url=f"{self.URL}/api/v2/conversations/participants/attributes/search",
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_attributes_conversations_by_query({body=}){content}"
+            raise Exception(erro)
+        return response.json()
+        
+    def disconnect_conversations_by_id(self, conversation_id: str) -> None:
+        """
+        POST /api/v2/conversations/${input.conversationId}/disconnect \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        body = {}
+        response = requests.post(
+            url=f"{self.URL}/api/v2/conversations/{conversation_id}/disconnect",
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"disconnect_conversations_by_id({body=}){content}"
+            raise Exception(erro)
+        return None
+    
+    def get_users(
+        self, body: dict = {}, page_number: int = 1, page_size: int = 25
+    ) -> dict:
+        """
+        POST /api/v2/users/search HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        Exemplos:
+
+        Body para pesquisar nome de usuário ativo e inativo
+
+        {
+            "pageSize": (page_size),
+            "pageNumber": (page_number),
+            "query": [
+                {
+                    "type": "EXACT",
+                    "fields": ["state"],
+                    "values": ["active", "inactive"],
+                },
+                {
+                    "type": "QUERY_STRING",
+                    "fields": ["name"],
+                    "value": user_name,
+                },
+            ],
+            "sortOrder": "ASC",
+            "sortBy": "name",
+            "expand": ["authorization", "team"],
+            "enforcePermissions": True,
+        }
+
+        Body para pesquisar email de usuario ativo e inativo
+
+        {
+            "pageSize": (page_size),
+            "pageNumber": (page_number),
+            "query": [
+                {
+                    "type": "EXACT",
+                    "fields": ["state"],
+                    "values": ["active", "inactive"],
+                },
+                {
+                    "type": "QUERY_STRING",
+                    "fields": ["email"],
+                    "value": user_email,
+                },
+            ],
+            "sortOrder": "ASC",
+            "sortBy": "name",
+            "expand": ["images", "authorization", "team"],
+            "enforcePermissions": True,
+        }
+
+        Body default
+
+        {
+            "pageSize": page_size,
+            "pageNumber": page_number,
+            "query": [
+                {
+                "type": "EXACT",
+                "fields": [
+                    "state"
+                ],
+                "values": [
+                    "active"
+                ]
+                }
+            ],
+            "sortOrder": "ASC",
+            "sortBy": "name",
+            "expand": [
+                "images",
+                "authorization",
+                "team",
+                "routingStatus",
+                "presence",
+                "organization",
+                "dateLastLogin",
+                "integrationPresence",
+                "presence",
+                "routingskills",
+                "routinglanguages",
+                "token",
+                "groups"
+            ],
+            "enforcePermissions": True
+        }
+        """
+        name_function = "get_users"
+        if not body:
+            body = {
+                "pageSize": page_size,
+                "pageNumber": page_number,
+                "query": [
+                    {
+                    "type": "EXACT",
+                    "fields": [
+                        "state"
+                    ],
+                    "values": [
+                        "active"
+                    ]
+                    }
+                ],
+                "sortOrder": "ASC",
+                "sortBy": "name",
+                "expand": [
+                    "images",
+                    "authorization",
+                    "team",
+                    "routingStatus",
+                    "presence",
+                    "organization",
+                    "dateLastLogin",
+                    "integrationPresence",
+                    "presence",
+                    "routingskills",
+                    "routinglanguages",
+                    "token",
+                    "groups"
+                ],
+                "enforcePermissions": True
+            }
+        response = requests.post(
+            url=f"{self.URL}/api/v2/users/search",
+            data=json.dumps(body),
+            headers=self.auth_headers(),
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_events_audits(self, body: dict) -> dict:
+        """
+        POST /api/v2/audits/query/realtime \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.post(
+            url=f"{self.URL}/api/v2/audits/query/realtime?expand=user",
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_events_audits({body=}){content}"
+            raise Exception(erro)
+        return response.json()
