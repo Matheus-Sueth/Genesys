@@ -3,12 +3,15 @@ import os
 import re
 import json
 import yaml
-from genesys.api import Genesys
 import importlib.resources as imp_res
 from importlib.abc import Traversable
 import subprocess
-import genesys.flows as tf_flow
 from collections import OrderedDict
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Optional
+from genesys.api import Genesys
+import genesys.flows as tf_flow
 
 
 def represent_ordereddict(dumper, data):
@@ -97,19 +100,19 @@ class FileYaml:
         return self._return_size(number / 1024, prefixe)
 
     def definir_flow(self):
+        states, tasks = [], []
         self.flow_type = list(self.json_file.keys())[0]
         if self.flow_type == "inboundCall":
-            tasks = [
-                tf_flow.Task(**task["task"])
-                for task in self.json_file[self.flow_type]["tasks"]
-            ]
-            del self.auxiliar[self.flow_type]["tasks"]
+            if self.json_file[self.flow_type].get("tasks", False):
+                tasks = [
+                    tf_flow.Task(**task["task"])
+                    for task in self.json_file[self.flow_type]["tasks"]
+                ]
+                del self.auxiliar[self.flow_type]["tasks"]
             self.flow = tf_flow.InboundCall(
                 **self.auxiliar[self.flow_type], tasks=tasks
             )
         elif self.flow_type == "inboundShortMessage":
-            states, tasks = [], []
-
             if self.json_file[self.flow_type].get("states", False):
                 states = [
                     tf_flow.State(**state["state"])
@@ -169,19 +172,36 @@ class FileYaml:
         return FileYaml(target)
 
 
+@dataclass
+class ArchyExportResult:
+    ok: bool
+    exit_code: int
+    job_id: str
+    export_file_host: Optional[str]
+    stdout: str
+    stderr: str
+
 
 class Archy:
     padrao = re.compile(r"_v\d+-\d+\.yaml$")
 
-    def __init__(self, genesys: Genesys) -> None:
+    def __init__(
+        self,
+        genesys: Genesys,
+        compose_file: str = "docker-compose.yml",
+        compose_service: str = "app-genesys",
+        volume_hint: str = "archy_out",
+        host_exports_dir: str = "flows",
+    ) -> None:
         self.api = genesys
         self.location = genesys.region.suffix
-        self.token = self.api.token_provider.get_access_token()
+        self.compose_file = compose_file
+        self.compose_service = compose_service
+        self.volume_hint = volume_hint
+        self.host_exports_dir = host_exports_dir
 
-    def __new__(cls, *args):
-        if not hasattr(cls, "instance"):
-            cls.instance = super(Archy, cls).__new__(cls)
-        return cls.instance
+    def __str__(self) -> str:
+        return f"Archy({self.api})"
 
     @staticmethod
     def get_file_flow(flow_name: str, flow_version: str, output_dir: str):
@@ -189,13 +209,7 @@ class Archy:
         if flow_version == "latest":
             arquivos = os.listdir(os.path.abspath(f"{output_dir}/"))
 
-            flow_files = [
-                arquivo
-                for arquivo in arquivos
-                if arquivo.startswith(
-                    flow_name,
-                )
-            ].sort()
+            flow_files = sorted([arquivo for arquivo in arquivos if arquivo.startswith(flow_name)])
         else:
             flow_files = [
                 arquivo
@@ -203,7 +217,7 @@ class Archy:
                 if flow_name in arquivo and flow_version in arquivo
             ]
         if flow_files is None or len(flow_files) == 0:
-            raise ValueError("No flow filess")
+            raise ValueError("No flow files")
         else:
             caminho_file = os.path.join(
                 output_dir,
@@ -211,56 +225,150 @@ class Archy:
             )
         return caminho_file
 
-    def export_flow_subprocess(
-        self,
-        flow_name: str,
-        flow_type: str = "inboundcall",
-        flow_version: str = "latest",
-        output_dir: str = "flows",
-    ):
-        aux_powershell = r"\v1.0\powershell.exe"
-        powershell = rf"C:\Windows\System32\WindowsPowerShell{aux_powershell}"
-        cmd = (
-            f'archy export --flowName "{flow_name}" --flowType {flow_type} '
-            f'--flowVersion {flow_version} --outputDir "{output_dir}" '
-            f'--exportType yaml --authToken "{self.token}" --location {self.location}" '
+    def _run(self, cmd: list[str], cwd: Optional[str] = None) -> tuple[int, str, str]:
+        p = subprocess.run(
+            cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",  # ou "ignore"
         )
-        file_flow, result_error, dict_dados = None, None, None
-        try:
-            results, error = subprocess.Popen(
-                [
-                    powershell,
-                    "-Command",
-                    cmd,
-                ],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                shell=True,
-            ).communicate()
-            if results:
-                dados = results.decode()
-                lista_dados = [
-                    dado.split(":")
-                    for dado in dados.split("\n")
-                    if dado.strip() != "" and ":" in dado
-                ]
-                dict_dados = {}
-                for dado in lista_dados:
-                    chave = dado[0].strip()
-                    valor = ":".join(dado[1:]).strip()
-                    dict_dados[chave] = valor.replace("'", "")
-                assert dict_dados["exit code"] == "0"
-                file_flow = FileYaml(dict_dados["Export file"])
-            if error:
-                result_error = error.decode()
-        except Exception as erro:
-            result_error = erro
-        finally:
-            return (dict_dados, result_error, file_flow)
+        return p.returncode, (p.stdout or ""), (p.stderr or "")
+
+    def _detect_volume_name(self) -> str:
+        """
+        Descobre o nome real do volume do compose no Docker.
+        Em geral vira algo tipo: <projeto>_archy_out
+        """
+        code, out, err = self._run(["docker", "volume", "ls", "--format", "{{.Name}}"])
+        if code != 0:
+            raise RuntimeError(f"Falha ao listar volumes: {err.strip()}")
+
+        names = [line.strip() for line in out.splitlines() if line.strip()]
+        # tenta match exato
+        if self.volume_hint in names:
+            return self.volume_hint
+
+        # tenta encontrar volumes que terminem com _archy_out (prefixo do projeto)
+        suffix = f"_{self.volume_hint}"
+        for n in names:
+            if n.endswith(suffix):
+                return n
+
+        raise RuntimeError(
+            f"Não encontrei o volume '{self.volume_hint}' (nem '*_{self.volume_hint}'). "
+            f"Verifique o docker-compose.yml e o 'docker volume ls'."
+        )
+
+    def _copy_from_volume_to_host(self, job_id: str, dest_dir: Path) -> None:
+        """
+        Copia tudo de /work/exports/<job_id> (volume) para dest_dir (host).
+        """
+        volume = self._detect_volume_name()
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+        # No Windows, o Docker CLI aceita caminho absoluto do Windows no -v.
+        host_path = str(dest_dir.resolve())
+
+        copy_cmd = [
+            "docker", "run", "--rm",
+            "-v", f"{volume}:/data",
+            "-v", f"{host_path}:/host",
+            "busybox", "sh", "-lc",
+            f"cp -rf /data/exports/{job_id}/* /host/ && ls -la /host"
+        ]
+
+        code, out, err = self._run(copy_cmd)
+        if code != 0:
+            raise RuntimeError(
+                "Falha ao copiar do volume para o host.\n"
+                f"CMD: {' '.join(copy_cmd)}\n"
+                f"STDOUT: {out}\nSTDERR: {err}"
+            )
+        
+    def export_flow(
+        self,
+        *,
+        flow_name: str,
+        flow_type: str,
+        flow_version: str = "latest",
+        export_type: str = "yaml",
+        project_dir: Optional[str] = None,
+    ) -> tuple[ArchyExportResult, Optional[FileYaml]]:
+        """
+        Exporta um fluxo pelo Archy dentro do container e traz o arquivo para o host.
+
+        Retorna:
+          - ArchyExportResult (com path host)
+          - FileYaml (se ok)
+        """
+        job_id = self.api.information_token['organization']['id']
+
+        # Onde o Archy vai escrever dentro do container (volume /work)
+        output_dir_container = f"/work/exports/{job_id}"
+
+        # Onde o arquivo vai cair no host
+        base = Path(project_dir) if project_dir else Path.cwd()
+        export_dir_host = base / self.host_exports_dir / job_id
+        token_info = self.api.token_provider.token_info()
+
+        cmd = [
+            "docker", "compose",
+            "-f", self.compose_file,
+            "run", "--rm", "-T",
+            "--entrypoint", "archy",
+            self.compose_service,
+            "export",
+            "--flowName", flow_name,
+            "--flowType", flow_type,
+            "--flowVersion", flow_version,
+            "--exportType", export_type,
+            "--outputDir", output_dir_container,
+            "--authToken", self.api.token_provider.get_access_token(),
+            "--authTokenIsClientCredentials", "true" if token_info["type"] == "ClientCredentials" else "false",
+            "--location", self.api.region.suffix,
+        ]
+
+        code, out, err = self._run(cmd, cwd=str(base))
+
+        # Mesmo quando o archy falha, a gente devolve o payload pra debug
+        if code != 0:
+            result = ArchyExportResult(
+                ok=False,
+                exit_code=code,
+                job_id=job_id,
+                export_file_host=None,
+                stdout=out,
+                stderr=err,
+            )
+            return result, None
+
+        # Copia do volume -> host
+        self._copy_from_volume_to_host(job_id=job_id, dest_dir=export_dir_host)
+
+        # Descobre qual YAML veio (padrão do archy: <flow>_vX-Y.yaml)
+        yaml_files = sorted(export_dir_host.glob("*.yaml"))
+        export_file_host = str(yaml_files[0].resolve()) if yaml_files else None
+
+        ok = export_file_host is not None
+
+        result = ArchyExportResult(
+            ok=ok,
+            exit_code=0,
+            job_id=job_id,
+            export_file_host=export_file_host,
+            stdout=out,
+            stderr=err,
+        )
+
+        if not ok:
+            return result, None
+
+        file_flow = FileYaml(export_file_host)
+        return result, file_flow
 
     def publish_flow_subprocess(self, flow_file):
-        aux_powershell = r"\v1.0\powershell.exe"
-        powershell = rf"C:\Windows\System32\WindowsPowerShell{aux_powershell}"
         dict_dados, result_error = None, None
         try:
             file_flow = FileYaml(flow_file)
@@ -268,31 +376,40 @@ class Archy:
                 raise Exception("Nao existe variavel file_flow.flow")
             flow_name = file_flow.flow.name
             if self.api.search_flow_is_prd(flow_name):
-                erro = f"Fluxo: {flow_name} é utilizado nos ivrs de produção"
-                raise Exception(erro)
+                raise Exception(
+                    f"Fluxo: {flow_name} é utilizado nos IVRs de produção"
+                )
             flows = file_flow.flow.get_dependencies("flows")
-            dependencies = [
-                self.publish_flow_empty_subprocess(flow_name_dependencie)
-                for flow_name_dependencie, flow_type_dependencie in flows
-                if self.api.get_flows(
-                    flow_name_or_description=flow_name_dependencie,
-                    type_flow=flow_type_dependencie,
-                )["total"] == 0
+            dependencies: list = []
+            for flow_name_dependencie, flow_type_dependencie in flows:
+                if (
+                    self.api.get_flows(
+                        flow_name_or_description=flow_name_dependencie,
+                        type_flow=flow_type_dependencie,
+                    )["total"]
+                    == 0
+                ):
+                    dependencies.append(
+                        self.publish_flow_empty_subprocess(flow_name_dependencie)
+                    )
+            # Build the publish command as a list of arguments
+            cmd = [
+                "archy",
+                "publish",
+                "--file",
+                flow_file,
+                "--authToken",
+                self.api.token_provider.get_access_token(),
+                "--location",
+                self.location,
             ]
-            cmd = (
-                f'archy publish --file "{flow_file}" '
-                f'--authToken "{self.token}" --location {self.location}'
-            )
-            results, error = subprocess.Popen(
-                [
-                    powershell,
-                    "-Command",
-                    cmd,
-                ],
+            process = subprocess.Popen(
+                cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                shell=True,
-            ).communicate()
+                shell=False,
+            )
+            results, error = process.communicate()
             if results:
                 dados = results.decode()
                 lista_dados = [
@@ -306,19 +423,20 @@ class Archy:
                     chave = dado[0].strip()
                     valor = ":".join(dado[1:]).strip()
                     dict_dados[chave] = valor
-                assert dict_dados["exit code"] == "0"
+                if dict_dados.get("exit code") != "0":
+                    raise Exception(
+                        f"Erro ao publicar o fluxo: {dict_dados.get('exit code')}"
+                    )
             if error:
                 result_error = error.decode()
         except Exception as erro:
-            result_error = erro
+            result_error = str(erro)
         finally:
             return (dict_dados, result_error)
 
     def publish_flow_empty_subprocess(
         self, flow_name, description="Fluxo_Vazio"
     ) -> tuple[dict | None, str | None]:
-        aux_powershell = r"\v1.0\powershell.exe"
-        powershell = rf"C:\Windows\System32\WindowsPowerShell{aux_powershell}"
         dict_dados, result_error = None, None
         try:
             flow_file_name = imp_res.files("genesys").joinpath("inbound_call_start.yaml")
@@ -326,25 +444,30 @@ class Archy:
             if file_flow.flow is None:
                 raise Exception("Nao existe variavel file_flow.flow")
             if self.api.search_flow_is_prd(flow_name):
-                erro = f"Fluxo: {flow_name} é utilizado nos ivrs de produção"
-                raise Exception(erro)
+                raise Exception(
+                    f"Fluxo: {flow_name} é utilizado nos IVRs de produção"
+                )
             file_flow.flow.name = flow_name
             file_flow.flow.description = description
             file_flow.save_yaml_to_file()
-            cmd = (
-                f'archy publish --file "{flow_file_name}" '
-                f'--authToken "{self.token}" --location {self.location}'
-            )
-            results, error = subprocess.Popen(
-                [
-                    powershell,
-                    "-Command",
-                    cmd,
-                ],
+            # Build command to publish the empty flow using archy
+            cmd = [
+                "archy",
+                "publish",
+                "--file",
+                str(flow_file_name),
+                "--authToken",
+                self.api.token_provider.get_access_token(),
+                "--location",
+                self.location,
+            ]
+            process = subprocess.Popen(
+                cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                shell=True,
-            ).communicate()
+                shell=False,
+            )
+            results, error = process.communicate()
             if results:
                 dados = results.decode()
                 lista_dados = [
@@ -357,7 +480,10 @@ class Archy:
                     chave = dado[0].strip()
                     valor = ":".join(dado[1:]).strip()
                     dict_dados[chave] = valor
-                assert dict_dados["exit code"] == "0"
+                if dict_dados.get("exit code") != "0":
+                    raise Exception(
+                        f"Erro ao publicar o fluxo vazio: {dict_dados.get('exit code')}"
+                    )
             if error:
                 result_error = error.decode()
         except Exception as erro:

@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  app-genesys:
+    image: genesys/archy:2.36.0
+    build:
+      context: .
+      dockerfile: ./docker/archy/Dockerfile
+    working_dir: /work
+    entrypoint: ["tail", "-f", "/dev/null"]
+    volumes:
+      - archy_out:/work
+      
+volumes:
+  archy_out:
