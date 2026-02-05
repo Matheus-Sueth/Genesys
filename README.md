@@ -11,7 +11,7 @@ O projeto Genesys é uma ferramenta para gerenciar aplicação do Archy e as API
 - Consumo das APIs do Genesys Cloud.
 
 ## Requisitos
-É necessário ter o Python 3.12+, Python 3.11 não pode ser usado ou versões anteriores.
+É necessário ter o Python 3.12+, Python 3.11 não pode ser usado ou versões anteriores e Docker instalado na máquina.
 
 ## Instalação
 Para instalar o projeto Genesys execute o seguinte comando:
