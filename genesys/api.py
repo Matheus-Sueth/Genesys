@@ -217,7 +217,7 @@ class Genesys:
         pass
     
     def delete_token_me(self) -> None:
-        url = f"https://api.{self.URL}/api/v2/tokens/me"
+        url = f"{self.URL}/api/v2/tokens/me"
         response = requests.delete(url, headers=self.auth_headers())
         if not response.ok:
             content = f"\nContent: {response.content}\n"
