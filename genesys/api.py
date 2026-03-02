@@ -1468,3 +1468,25 @@ class Genesys:
             erro = f"get_events_audits({body=}){content}"
             raise Exception(erro)
         return response.json()
+    
+    def get_events_usage(self, body: dict, params: dict|None = None) -> dict:
+        """
+        POST /api/v2/usage/events/query \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        if not params:
+            params = {
+                "pageSize": 25,
+            }
+        response = requests.post(
+            url=f"{self.URL}/api/v2/usage/events/query",
+            headers=self.auth_headers(),
+            params=params,
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_events_usage({body=}){content}"
+            raise Exception(erro)
+        return response.json()
