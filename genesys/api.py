@@ -605,7 +605,7 @@ class Genesys:
         Content-Type: application/json
         """
         name_function = "get_row_data_table_by_id"
-        parameters = {"showbrief": True}
+        parameters = {"showbrief": False}
         url = f"{self.URL}/api/v2/flows/datatables/{data_table_id}/rows/{row_id}"
         response = requests.get(
             url=url,
@@ -1488,5 +1488,147 @@ class Genesys:
         if not response.ok:
             content = f"\nContent: {response.content}\n"
             erro = f"get_events_usage({body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_routing_queues(self, params: dict|None = None) -> dict:
+        """
+        GET /api/v2/routing/queues \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        Exemplo:
+
+        {
+            "pageSize": 100,
+            "pageNumber": 1,
+            "sortOrder": "asc",
+            "sortBy": "name"
+        }
+        """
+        if not params:
+            params = {
+                "pageSize": 100,
+                "pageNumber": 1,
+                "sortOrder": "asc",
+                "sortBy": "name"
+            }
+        response = requests.get(
+            url=f"{self.URL}/api/v2/routing/queues",
+            headers=self.auth_headers(),
+            params=params
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_routing_queues({params=}){content}"
+            raise Exception(erro)
+        return response.json()
+
+    def post_row_data_table(
+        self,
+        data_table_id: str,
+        body: dict,
+    ) -> dict:
+        """
+        POST /api/v2/flows/datatables/{datatableId}/rows HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        name_function = "post_row_data_table"
+        url = f"{self.URL}/api/v2/flows/datatables/{data_table_id}/rows"
+        response = requests.post(
+            url=url,
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            parameters = f"{data_table_id=}, {body=}"
+            erro = f"{name_function}({parameters}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def put_row_data_table_by_id(
+        self,
+        data_table_id: str,
+        row_id: str,
+        body: dict
+    ) -> dict:
+        """
+        PUT /api/v2/flows/datatables/{datatableId}/rows/{rowId} HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        name_function = "put_row_data_table_by_id"
+        url = f"{self.URL}/api/v2/flows/datatables/{data_table_id}/rows/{row_id}"
+        response = requests.put(
+            url=url,
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            parameters = f"{data_table_id=}, {row_id=}, {body=}"
+            erro = f"{name_function}({parameters}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def delete_row_data_table_by_id(
+        self,
+        data_table_id: str,
+        row_id: str,
+    ) -> dict:
+        """
+        DELETE /api/v2/flows/datatables/{datatableId}/rows/{rowId} HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        name_function = "delete_row_data_table_by_id"
+        url = f"{self.URL}/api/v2/flows/datatables/{data_table_id}/rows/{row_id}"
+        response = requests.delete(
+            url=url,
+            headers=self.auth_headers(),
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            parameters = f"{data_table_id=}, {row_id=}"
+            erro = f"{name_function}({parameters}){content}"
+            raise Exception(erro)
+        return response.json()
+
+    def post_groups_members(self, group_id: str, body: dict) -> dict:
+        """
+        POST /api/v2/groups/{groupId}/members \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        BI: 9f5c0649-b806-45cb-ade4-4834980d58d2
+        body = [userId]
+        """
+        response = requests.post(
+            url=f"{self.URL}/api/v2/groups/{group_id}/members",
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"post_groups_members({body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def post_usage_events_aggregates(self, body: dict) -> dict:
+        """
+        POST /api/v2/usage/events/aggregates/query \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.post(
+            url=f"{self.URL}/api/v2/usage/events/aggregates/query",
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"post_usage_events_aggregates({body=}){content}"
             raise Exception(erro)
         return response.json()
