@@ -28,6 +28,7 @@ class GenesysRegion:
 
 class TokenProvider(Protocol):
     """Qualquer OAuth que você suportar precisa entregar um access token válido."""
+    def get_region(self) -> GenesysRegion: ...
     def get_access_token(self) -> str: ...
     def token_info(self) -> Dict[str, Any]: ...
 
@@ -65,6 +66,9 @@ class ClientCredentialsTokenProvider(TokenProvider):
         self._access_token: str = ""
         self._expires_at_epoch: int = 0
         self._raw: Dict[str, Any] = {}
+
+    def get_region(self) -> GenesysRegion:
+        return self.region
 
     def get_access_token(self) -> str:
         now = int(time.time())
@@ -124,6 +128,9 @@ class PkceTokenProvider(TokenProvider):
         if tokens:
             self.set_tokens(tokens)
 
+    def get_region(self) -> GenesysRegion:
+        return self.region
+
     def set_tokens(self, tokens: Dict[str, Any]) -> None:
         """
         Você chama isto no /auth/callback (depois do exchange code->token),
@@ -181,8 +188,8 @@ class PkceTokenProvider(TokenProvider):
     
 
 class Genesys:
-    def __init__(self, region_suffix: str, token_provider: TokenProvider) -> None:
-        self.region = GenesysRegion(region_suffix)
+    def __init__(self, token_provider: TokenProvider) -> None:
+        self.region = token_provider.get_region()
         self.URL_AUTH = self.region.url_auth
         self.URL = self.region.url_api
         self.token_provider = token_provider
@@ -190,6 +197,9 @@ class Genesys:
         
     def __str__(self) -> str:
         return f"Genesys(org: {self.information_token['organization']['name']}, user: {self.information_token['OAuthClient']['name']})"
+    
+    def get_organization_name(self) -> str:
+        return self.information_token['organization']['name']
     
     def auth_headers(self) -> Dict[str, str]:
         return {
