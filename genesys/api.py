@@ -1479,7 +1479,7 @@ class Genesys:
             raise Exception(erro)
         return response.json()
     
-    def get_events_usage(self, body: dict, params: dict|None = None) -> dict:
+    def get_usage_events(self, body: dict, params: dict|None = None, next_url: str|None = None) -> dict:
         """
         POST /api/v2/usage/events/query \n
         Authorization: Bearer ****************** \n
@@ -1489,15 +1489,16 @@ class Genesys:
             params = {
                 "pageSize": 25,
             }
+        url = f"{self.URL}{next_url}" if next_url else f"{self.URL}/api/v2/usage/events/query"
         response = requests.post(
-            url=f"{self.URL}/api/v2/usage/events/query",
+            url=url,
             headers=self.auth_headers(),
             params=params,
             data=json.dumps(body)
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
-            erro = f"get_events_usage({body=}){content}"
+            erro = f"get_usage_events({body=}){content}"
             raise Exception(erro)
         return response.json()
     
