@@ -1643,3 +1643,45 @@ class Genesys:
             erro = f"post_usage_events_aggregates({body=}){content}"
             raise Exception(erro)
         return response.json()
+    
+    def post_analytics_queues_observations_query(self, body: dict) -> dict:
+        """
+        POST /api/v2/analytics/queues/observations/query \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        Body empty schema
+
+        {
+        "filter": {
+            "type": "",
+            "clauses": [
+            {
+                "type": "",
+                "predicates": [
+                {
+                    "type": "",
+                    "dimension": "",
+                    "operator": "",
+                    "value": "",
+                    "range": ""
+                }
+                ]
+            }
+            ],
+            "predicates": []
+        },
+        "metrics": [],
+        "detailMetrics": []
+        }
+        """
+        response = requests.post(
+            url=f"{self.URL}/api/v2/analytics/queues/observations/query",
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"post_analytics_queues_observations_query({body=}){content}"
+            raise Exception(erro)
+        return response.json()
