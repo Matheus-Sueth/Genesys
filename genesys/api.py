@@ -1685,3 +1685,232 @@ class Genesys:
             erro = f"post_analytics_queues_observations_query({body=}){content}"
             raise Exception(erro)
         return response.json()
+
+    def get_conversation_summaries_by_id(self, conversation_id: str) -> dict:
+        """
+        GET /api/v2/conversations/{conversationId}/summaries \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.get(url=f'{self.URL}/api/v2/conversations/{conversation_id}/summaries', headers=self.auth_headers())
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_conversation_summaries_by_id({conversation_id=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_speech_conversation_summaries_by_id(self, conversation_id: str) -> dict:
+        """
+        GET /api/v2/speechandtextanalytics/conversations/{conversationId}/summaries \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.get(url=f'{self.URL}/api/v2/speechandtextanalytics/conversations/{conversation_id}/summaries', headers=self.auth_headers())
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_speech_conversation_summaries_by_id({conversation_id=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_queues_memebers_by_id(
+        self, queueu_id: str, params: dict = {}, page_number: int = 1, page_size: int = 100
+    ) -> dict:
+        """
+        GET /api/v2/routing/queues/{queueId}/members HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        Exemplos de params:
+        
+        params = {
+                "pageSize": page_size,
+                "pageNumber": page_number,
+                "sortOrder": "ASC",
+                "sortBy": "name"
+            }
+        """
+        name_function = "get_queues_memebers_by_id"
+        if not params:
+            params = {
+                "pageSize": page_size,
+                "pageNumber": page_number,
+                "sortOrder": "ASC",
+            }
+        response = requests.get(
+            url=f"{self.URL}/api/v2/routing/queues/{queueu_id}/members",
+            params=params,
+            headers=self.auth_headers(),
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({queueu_id=},{params=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def path_user_by_id(self, user_id: str, body: dict) -> dict:
+        """
+        PATCH /api/v2/users/{userId} \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.patch(
+            url=f'{self.URL}/api/v2/users/{user_id}', 
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+            )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"path_user_by_id({user_id=}, {body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def put_user_by_id(self, user_id: str, body: dict) -> dict:
+        """
+        PUT /api/v2/users/{userId}/state \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.put(
+            url=f'{self.URL}/api/v2/users/{user_id}/state', 
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+            )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"put_user_by_id({user_id=}, {body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_authorization_roles(
+        self, params: dict = {}, page_number: int = 1, page_size: int = 100
+    ) -> dict:
+        """
+        GET /api/v2/authorization/roles HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        Exemplos de params:
+        
+        params = {
+                "pageSize": page_size,
+                "pageNumber": page_number,
+                "sortOrder": "ASC"
+            }
+        """
+        name_function = "get_authorization_roles"
+        if not params:
+            params = {
+                "pageSize": page_size,
+                "pageNumber": page_number,
+                "sortOrder": "ASC",
+            }
+        response = requests.get(
+            url=f"{self.URL}/api/v2/authorization/roles",
+            params=params,
+            headers=self.auth_headers(),
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({params=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_authorization_divisions(
+        self, params: dict = {}, page_number: int = 1, page_size: int = 100
+    ) -> dict:
+        """
+        GET /api/v2/authorization/divisions HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        Exemplos de params:
+        
+        params = {
+                "pageSize": page_size,
+                "pageNumber": page_number,
+                "sortOrder": "ASC"
+            }
+        """
+        name_function = "get_authorization_divisions"
+        if not params:
+            params = {
+                "pageSize": page_size,
+                "pageNumber": page_number,
+                "sortOrder": "ASC",
+            }
+        response = requests.get(
+            url=f"{self.URL}/api/v2/authorization/divisions",
+            params=params,
+            headers=self.auth_headers(),
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({params=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_user_roles(self, subject_id: str) -> dict:
+        """
+        GET /api/v2/users/{subjectId}/roles \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        subject_id = user_id
+        """
+        response = requests.get(
+            url=f'{self.URL}/api/v2/users/{subject_id}/roles', 
+            headers=self.auth_headers()
+            )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_user_roles({subject_id=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def put_user_roles_by_id(self, subject_id: str, body: dict) -> dict:
+        """
+        PUT /api/v2/users/{subjectId}/roles \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.put(
+            url=f'{self.URL}/api/v2/users/{subject_id}/roles', 
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+            )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"put_user_roles_by_id({subject_id=}, {body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_rows_data_table_by_id(
+        self,
+        data_table_id: str,
+        page_number: int = 1,
+        page_size: int = 50,
+        showbrief: bool = False,
+        sort_order: str = "ascending",
+    ) -> dict:
+        """
+        GET /api/v2/flows/datatables/{datatableId}/rows HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json \n
+        """
+        name_function = "get_rows_data_table_by_id"
+        parameters = {
+            "showbrief": showbrief,
+            "pageNumber": page_number,
+            "pageSize": page_size,
+            "sortOrder": sort_order,
+        }
+        response = requests.get(
+            url=f"{self.URL}/api/v2/flows/datatables/{data_table_id}/rows",
+            params=parameters,
+            headers=self.auth_headers(),
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({parameters=}){content}"
+            raise Exception(erro)
+        return response.json()
