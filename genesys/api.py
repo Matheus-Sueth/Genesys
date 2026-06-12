@@ -629,33 +629,21 @@ class Genesys:
             raise Exception(erro)
         return response.json()
     
-    def get_data_action_by_name(
-        self,
-        category_name: str,
-        name_data_action: str,
-        page_number: int = 1,
-        page_size: int = 50,
-    ) -> dict:
+    def get_integrations_actions(self, params: dict) -> dict:
         """
         GET /api/v2/integrations/actions HTTP/1.1 \n
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
         name_function = "get_data_action_by_name"
-        parameters = {
-            "pageNumber": page_number,
-            "pageSize": page_size,
-            "category": category_name,
-            "name": name_data_action,
-        }
         response = requests.get(
             url=f"{self.URL}/api/v2/integrations/actions",
-            params=parameters,
+            params=params,
             headers=self.auth_headers(),
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
-            erro = f"{name_function}({parameters=}){content}"
+            erro = f"{name_function}({params=}){content}"
             raise Exception(erro)
         return response.json()
 
@@ -1914,3 +1902,534 @@ class Genesys:
             erro = f"{name_function}({parameters=}){content}"
             raise Exception(erro)
         return response.json()
+    
+    def post_flows_intances_query(self, body: dict, params: dict|None = None) -> dict:
+        """
+        POST /api/v2/flows/instances/query \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        if not params:
+            params = {
+                "pageSize": 25,
+            }
+        response = requests.post(
+            url=f"{self.URL}/api/v2/flows/instances/query",
+            headers=self.auth_headers(),
+            params=params,
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"post_flows_intances_query({params=}, {body=}){content}"
+            raise Exception(erro)
+        return response.json()
+
+    def post_routing_wrapupcodes(self, body: dict) -> dict:
+        """
+        POST /api/v2/routing/wrapupcodes \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        body:
+
+        {"name":"te","description":"res","division":{"id":"*"}}
+        """
+        response = requests.post(
+            url=f"{self.URL}/api/v2/routing/wrapupcodes",
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"post_routing_wrapupcodes({body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_routing_wrapupcodes(self, params: dict|None = None) -> dict:
+        """
+        GET /api/v2/routing/wrapupcodes \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        params:
+        
+        {
+            "pageSize": 25,
+            "pageNumber": 1,
+            "sortOrder": "ascending",
+            "name": ""
+        }
+        """
+        if not params:
+            params = {
+                "pageSize": 25,
+                "pageNumber": 1,
+                "sortOrder": "ascending"
+            }
+        response = requests.get(
+            url=f"{self.URL}/api/v2/routing/wrapupcodes",
+            headers=self.auth_headers(),
+            params=params
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"post_flows_intances_query({params=}){content}"
+            raise Exception(erro)
+        return response.json()
+
+    def post_routing_queue_wrapupcodes_by_id(self, queue_id: str, body: list[dict[str, str]]) -> dict:
+        """
+        POST /api/v2/routing/queues/{queueId}/wrapupcodes \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        body:
+
+        [{"id":""}]
+        """
+        response = requests.post(
+            url=f"{self.URL}/api/v2/routing/queues/{queue_id}/wrapupcodes",
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"post_routing_queue_wrapupcodes_by_id({queue_id=}, {body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def put_routing_wrapupcodes(self, wrap_up_code_id: str, body: dict) -> dict:
+        """
+        PUT /api/v2/routing/wrapupcodes/{codeId} \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        body:
+
+        {"name":"te","description":"res","division":{"id":"*"}}
+        """
+        response = requests.put(
+            url=f"{self.URL}/api/v2/routing/wrapupcodes/{wrap_up_code_id}",
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"put_routing_wrapupcodes({wrap_up_code_id=},{body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_script_by_id(self, script_id: str) -> dict:
+        """
+        GET /api/v2/scripts/{scriptId} HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json \n
+        """
+        name_function = "get_script_by_id"
+        url = f"{self.URL}/api/v2/scripts/{script_id}"
+        response = requests.get(
+            url=url,
+            headers=self.auth_headers(),
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({script_id=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_scripts(self, params: dict) -> dict:
+        """
+        GET /api/v2/scripts HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json \n
+        """
+        name_function = "get_script_by_id"
+        url = f"{self.URL}/api/v2/scripts"
+        response = requests.get(
+            url=url,
+            headers=self.auth_headers(),
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({params=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_architect_dependency_tracking(self, params: dict) -> dict:
+        """
+        GET /api/v2/architect/dependencytracking/object \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        name_function = "get_architect_dependency_tracking"
+        response = requests.get(
+            url=f"{self.URL}/api/v2/architect/dependencytracking/object",
+            headers=self.auth_headers(),
+            params=params
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({params=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_integration_action_by_id(self, action_id: str) -> dict:
+        """
+        GET /api/v2/integrations/actions/{actionId} HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        name_function = "get_integration_action_by_id"
+        response = requests.get(
+            url=f"{self.URL}/api/v2/integrations/actions/{action_id}",
+            headers=self.auth_headers(),
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({action_id=}){content}"
+            raise Exception(erro)
+        return response.json()
+
+    def get_integration_action_draft_by_id(self, action_id: str) -> dict:
+        """
+        GET /api/v2/integrations/actions/{actionId}/draft HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        name_function = "get_integration_action_draft_by_id"
+        response = requests.get(
+            url=f"{self.URL}/api/v2/integrations/actions/{action_id}/draft",
+            headers=self.auth_headers(),
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({action_id=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def put_routing_queue(self, queue_id: str, body: dict) -> dict:
+        """
+        PUT /api/v2/routing/queues/{queueId} \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        body:
+
+        {
+            "name": "",
+            "division": {
+                "id": "",
+                "name": ""
+            },
+            "description": "",
+            "dateCreated": "",
+            "dateModified": "",
+            "modifiedBy": "",
+            "createdBy": "",
+            "mediaSettings": {
+                "call": {
+                "enableAutoAnswer": true,
+                "alertingTimeoutSeconds": 0,
+                "serviceLevel": "",
+                "autoAnswerAlertToneSeconds": 0,
+                "manualAnswerAlertToneSeconds": 0
+                },
+                "callback": {
+                "enableAutoAnswer": true,
+                "alertingTimeoutSeconds": 0,
+                "serviceLevel": "",
+                "autoAnswerAlertToneSeconds": 0,
+                "manualAnswerAlertToneSeconds": 0,
+                "mode": "",
+                "enableAutoDialAndEnd": true,
+                "autoDialDelaySeconds": 0,
+                "autoEndDelaySeconds": 0,
+                "pacingModifier": 0,
+                "maxRetryCount": 0,
+                "retryDelaySeconds": 0,
+                "liveVoiceReactionType": "",
+                "liveVoiceFlow": "",
+                "answeringMachineReactionType": "",
+                "answeringMachineFlow": "",
+                "edgeGroup": "",
+                "site": ""
+                },
+                "chat": {
+                "enableAutoAnswer": true,
+                "alertingTimeoutSeconds": 0,
+                "serviceLevel": "",
+                "autoAnswerAlertToneSeconds": 0,
+                "manualAnswerAlertToneSeconds": 0
+                },
+                "email": {
+                "enableAutoAnswer": true,
+                "alertingTimeoutSeconds": 0,
+                "serviceLevel": "",
+                "autoAnswerAlertToneSeconds": 0,
+                "manualAnswerAlertToneSeconds": 0
+                },
+                "message": {
+                "enableAutoAnswer": true,
+                "alertingTimeoutSeconds": 0,
+                "serviceLevel": "",
+                "autoAnswerAlertToneSeconds": 0,
+                "manualAnswerAlertToneSeconds": 0,
+                "subTypeSettings": {},
+                "enableInactivityTimeout": true,
+                "inactivityTimeoutSettings": ""
+                }
+            },
+            "routingRules": [
+                {
+                "operator": "",
+                "threshold": 0,
+                "waitSeconds": 0
+                }
+            ],
+            "conditionalGroupRouting": {
+                "rules": [
+                {
+                    "queue": "",
+                    "metric": "",
+                    "operator": "",
+                    "conditionValue": 0,
+                    "groups": [
+                    {
+                        "id": "",
+                        "name": "",
+                        "division": "",
+                        "type": ""
+                    }
+                    ],
+                    "waitSeconds": 0
+                }
+                ]
+            },
+            "conditionalGroupActivation": {
+                "pilotRule": {
+                "conditions": [
+                    {
+                    "simpleMetric": "",
+                    "operator": "",
+                    "value": 0
+                    }
+                ],
+                "conditionExpression": ""
+                },
+                "rules": [
+                {
+                    "conditions": [
+                    ""
+                    ],
+                    "conditionExpression": "",
+                    "groups": [
+                    ""
+                    ]
+                }
+                ]
+            },
+            "bullseye": {
+                "rings": [
+                {
+                    "expansionCriteria": [
+                    {
+                        "type": "",
+                        "threshold": 0
+                    }
+                    ],
+                    "actions": "",
+                    "memberGroups": [
+                    ""
+                    ]
+                }
+                ]
+            },
+            "scoringMethod": "",
+            "lastAgentRoutingMode": "",
+            "acwSettings": {
+                "wrapupPrompt": "",
+                "timeoutMs": 0
+            },
+            "skillEvaluationMethod": "",
+            "memberGroups": [
+                ""
+            ],
+            "queueFlow": {
+                "id": "",
+                "name": "",
+                "selfUri": ""
+            },
+            "emailInQueueFlow": {
+                "id": "",
+                "name": "",
+                "selfUri": ""
+            },
+            "messageInQueueFlow": {
+                "id": "",
+                "name": "",
+                "selfUri": ""
+            },
+            "whisperPrompt": {
+                "id": "",
+                "name": "",
+                "selfUri": ""
+            },
+            "onHoldPrompt": {
+                "id": "",
+                "name": "",
+                "selfUri": ""
+            },
+            "autoAnswerOnly": true,
+            "cannedResponseLibraries": {
+                "libraryIds": [
+                ""
+                ],
+                "mode": ""
+            },
+            "enableTranscription": true,
+            "enableAudioMonitoring": true,
+            "enableManualAssignment": true,
+            "agentOwnedRouting": {
+                "enableAgentOwnedCallbacks": true,
+                "maxOwnedCallbackHours": 0,
+                "maxOwnedCallbackDelayHours": 0
+            },
+            "directRouting": {
+                "callMediaSettings": {
+                "useAgentAddressOutbound": true
+                },
+                "emailMediaSettings": {
+                "useAgentAddressOutbound": true
+                },
+                "messageMediaSettings": {
+                "useAgentAddressOutbound": true
+                },
+                "backupQueueId": "",
+                "waitForAgent": true,
+                "agentWaitSeconds": 0
+            },
+            "callingPartyName": "",
+            "callingPartyNumber": "",
+            "defaultScripts": {
+                "": {}
+            },
+            "outboundMessagingAddresses": {
+                "smsAddress": {
+                "id": "",
+                "name": "",
+                "selfUri": ""
+                },
+                "openMessagingRecipient": {
+                "id": "",
+                "name": "",
+                "selfUri": ""
+                },
+                "whatsAppRecipient": {
+                "id": "",
+                "name": "",
+                "selfUri": ""
+                }
+            },
+            "outboundEmailAddress": {
+                "domain": {
+                "id": "",
+                "name": "",
+                "selfUri": ""
+                },
+                "route": {
+                "name": "",
+                "pattern": "",
+                "queue": "",
+                "priority": 0,
+                "skills": [
+                    {
+                    "id": "",
+                    "name": "",
+                    "selfUri": ""
+                    }
+                ],
+                "language": "",
+                "fromName": "",
+                "fromEmail": "",
+                "flow": "",
+                "replyEmailAddress": "",
+                "autoBcc": [
+                    {
+                    "email": "",
+                    "name": ""
+                    }
+                ],
+                "spamFlow": "",
+                "signature": "",
+                "historyInclusion": "",
+                "allowMultipleActions": true,
+                "mailboxFolders": [
+                    ""
+                ]
+                }
+            },
+            "peerId": "",
+            "suppressInQueueCallRecording": true
+            }
+        """
+        response = requests.put(
+            url=f"{self.URL}/api/v2/routing/queues/{queue_id}",
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"put_routing_queue({queue_id=}, {body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_routing_queue(self, queue_id: str) -> dict:
+        """
+        GET /api/v2/routing/queues/{queueId} \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.get(
+            url=f"{self.URL}/api/v2/routing/queues/{queue_id}",
+            headers=self.auth_headers()
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_routing_queue({queue_id=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_routing_queue_wrapupcodes_by_id(self, queue_id: str, params: dict) -> dict:
+        """
+        GET /api/v2/routing/queues/{queueId}/wrapupcodes \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.get(
+            url=f"{self.URL}/api/v2/routing/queues/{queue_id}/wrapupcodes",
+            headers=self.auth_headers(),
+            params=params
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_routing_queue_wrapupcodes_by_id({queue_id=}, {params=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def delete_routing_queue_wrapupcode_by_id(self, queue_id: str, wrapup_code_id: str) -> None:
+        """
+        DELETE /api/v2/routing/queues/{queueId}/wrapupcodes/{codeId} \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.delete(
+            url=f"{self.URL}/api/v2/routing/queues/{queue_id}/wrapupcodes/{wrapup_code_id}",
+            headers=self.auth_headers()
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"delete_routing_queue_wrapupcodes_by_id({queue_id=}, {wrapup_code_id=}){content}"
+            raise Exception(erro)
+        return None
+    
