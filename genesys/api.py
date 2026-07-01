@@ -1,6 +1,7 @@
 import requests
 import base64
 import os
+import time
 import json
 from dotenv import load_dotenv, dotenv_values
 import time
@@ -1098,7 +1099,7 @@ class Genesys:
             print(f"{flow["name"]} - action name: {current_operation["actionName"]}")
             status = current_operation["actionStatus"]
             print(f"{flow["name"]} - action status: {status}")
-
+            time.sleep(3)
             dados = self.checkin_flow_by_id(flow_id)
             print(flow["name"], dados)
             dados = self.get_flow_by_id(flow_id)
@@ -1107,7 +1108,7 @@ class Genesys:
             print(f"{flow["name"]} - action name: {current_operation["actionName"]}")
             status = current_operation["actionStatus"]
             print(f"{flow["name"]} - action status: {status}")
-
+            time.sleep(3)
             dados = self.publish_flow_by_id(flow_id)
             print(flow["name"], dados)
             dados = self.get_flow_by_id(flow_id)
@@ -1116,6 +1117,7 @@ class Genesys:
             print(f"{flow["name"]} - action name: {current_operation["actionName"]}")
             status = current_operation["actionStatus"]
             print(f"{flow["name"]} - action status: {status}")
+            time.sleep(3)
             success, error = True, None
         except Exception as erro:
             success, error = False, str(error)
@@ -2432,4 +2434,96 @@ class Genesys:
             erro = f"delete_routing_queue_wrapupcodes_by_id({queue_id=}, {wrapup_code_id=}){content}"
             raise Exception(erro)
         return None
+    
+    def post_gdpr_request(self, parameters: dict, body: dict) -> dict:
+        """
+        POST /api/v2/gdpr/requests \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        body:
+
+        {
+            "name": "",
+            "replacementTerms": [
+                {
+                "type": "",
+                "existingValue": "",
+                "updatedValue": ""
+                }
+            ],
+            "requestType": "",
+            "subject": {
+                "name": "",
+                "userId": "",
+                "externalContactId": "",
+                "dialerContactId": {
+                "id": "",
+                "contactListId": ""
+                },
+                "journeyCustomer": {
+                "type": "",
+                "id": ""
+                },
+                "socialHandle": {
+                "type": "",
+                "value": ""
+                },
+                "externalId": "",
+                "addresses": [
+                ""
+                ],
+                "phoneNumbers": [
+                ""
+                ],
+                "emailAddresses": [
+                ""
+                ]
+            }
+            }
+        """
+        response = requests.post(
+            url=f"{self.URL}/api/v2/gdpr/requests",
+            headers=self.auth_headers(),
+            params=parameters,
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"post_gdpr_request({parameters=}, {body=}){content}"
+            raise Exception(erro)
+        return response.json()
+   
+    def get_gdpr_subjects(self, params: dict) -> dict:
+        """
+        GET /api/v2/gdpr/subjects \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.get(
+            url=f"{self.URL}/api/v2/gdpr/subjects",
+            headers=self.auth_headers(),
+            params=params
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_gdpr_subjects({params=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_gdpr_request_by_id(self, request_id: str) -> dict:
+        """
+        GET /api/v2/gdpr/requests/{requestId} \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.get(
+            url=f"{self.URL}/api/v2/gdpr/requests/{request_id}",
+            headers=self.auth_headers()
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_gdpr_request_by_id({request_id=}){content}"
+            raise Exception(erro)
+        return response.json()
     
