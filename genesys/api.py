@@ -437,31 +437,16 @@ class Genesys:
             raise Exception(erro)
         return response.json()
 
-    def get_user_prompts(
+    def get_architect_prompts(
         self,
-        page_number: int = 1,
-        page_size: int = 50,
-        name: list[str] = [""],
-        description: str = "",
-        name_or_description: str = "",
-        language: list[str] = ["pt-br"],
+        parameters: dict
     ) -> dict:
         """
         GET /api/v2/architect/prompts HTTP/1.1 \n
         Authorization: Bearer ****************** \n
         Content-Type: application/json
         """
-        name_function = "get_user_prompts"
-        parameters = {
-            "pageNumber": page_number,
-            "pageSize": page_size,
-            "name": name,
-            "description": description,
-            "nameOrDescription": name_or_description,
-            "includeMediaUris": True,
-            "includeResources": True,
-            "language": language,
-        }
+        name_function = "get_architect_prompts"
         response = requests.get(
             url=f"{self.URL}/api/v2/architect/prompts",
             params=parameters,
@@ -883,14 +868,13 @@ class Genesys:
             raise Exception(erro)
         return response.json()
     
-    def create_new_user_prompt(self, name: str, description: str) -> dict:
+    def post_architect_prompts(self, body: dict) -> dict:
         """
         POST /api/v2/architect/prompts HTTP/1.1 \n
         Authorization: Bearer ****************** \n
         Content-Type: application/json \n
         """
-        name_function = "create_new_user_prompt"
-        body = {"name": name, "description": description}
+        name_function = "post_architect_prompts"
         response = requests.post(
             url=f"{self.URL}/api/v2/architect/prompts",
             headers=self.auth_headers(),
@@ -902,19 +886,15 @@ class Genesys:
             raise Exception(erro)
         return response.json()
 
-    def create_new_user_prompt_resource(
-        self, prompt_id: str, language: str, ttsString: str, text: str
-    ) -> dict:
+    def post_architect_prompts_resources_by_id(self, prompt_id: str, body: dict) -> dict:
         """
         POST /api/v2/architect/prompts/{promptId}/resources HTTP/1.1 \n
         Authorization: Bearer ****************** \n
         Content-Type: application/json \n
         """
-        name_function = "create_new_user_prompt_resource"
-        body = {"language": language, "ttsString": ttsString, "text": text}
-        url = f"{self.URL}/api/v2/architect/prompts/{prompt_id}/resources"
+        name_function = "post_architect_prompts_resources_by_id"
         response = requests.post(
-            url=url,
+            url=f"{self.URL}/api/v2/architect/prompts/{prompt_id}/resources",
             headers=self.auth_headers(),
             data=json.dumps(body),
         )
@@ -2051,6 +2031,7 @@ class Genesys:
         response = requests.get(
             url=url,
             headers=self.auth_headers(),
+            params=params
         )
         if not response.ok:
             content = f"\nContent: {response.content}\n"
@@ -2524,6 +2505,44 @@ class Genesys:
         if not response.ok:
             content = f"\nContent: {response.content}\n"
             erro = f"get_gdpr_request_by_id({request_id=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_external_contacts(self, params: dict) -> dict:
+        """
+        GET /api/v2/externalcontacts/contacts HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json \n
+        """
+        name_function = "get_external_contacts"
+        url = f"{self.URL}/api/v2/externalcontacts/contacts"
+        response = requests.get(
+            url=url,
+            headers=self.auth_headers(),
+            params=params
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({params=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def get_external_contacts_scan(self, params: dict) -> dict:
+        """
+        GET /api/v2/externalcontacts/scan/contacts HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json \n
+        """
+        name_function = "get_external_contacts_scan"
+        url = f"{self.URL}/api/v2/externalcontacts/scan/contacts"
+        response = requests.get(
+            url=url,
+            headers=self.auth_headers(),
+            params=params
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({params=}){content}"
             raise Exception(erro)
         return response.json()
     
