@@ -1837,6 +1837,23 @@ class Genesys:
             raise Exception(erro)
         return response.json()
     
+    def get_user_by_id(self, user_id: str, parameters: dict|None = None) -> dict:
+        """
+        GET /api/v2/users/{userId} \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.get(
+            url=f'{self.URL}/api/v2/users/{user_id}', 
+            headers=self.auth_headers(),
+            params=parameters
+            )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_user_by_id({user_id=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
     def put_user_roles_by_id(self, subject_id: str, body: dict) -> dict:
         """
         PUT /api/v2/users/{subjectId}/roles \n
@@ -2543,6 +2560,45 @@ class Genesys:
         if not response.ok:
             content = f"\nContent: {response.content}\n"
             erro = f"{name_function}({params=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
+    def post_users(self, body: dict) -> dict:
+        """
+        POST /api/v2/users \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        body:
+
+        {
+            "name": "",
+            "department": "",
+            "email": "",
+            "addresses": [
+                {
+                "address": "",
+                "mediaType": "",
+                "type": "",
+                "extension": "",
+                "countryCode": "",
+                "integration": ""
+                }
+            ],
+            "title": "",
+            "password": "",
+            "divisionId": "",
+            "state": ""
+        }
+        """
+        response = requests.post(
+            url=f"{self.URL}/api/v2/users",
+            headers=self.auth_headers(),
+            data=json.dumps(body)
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"post_users({body=}){content}"
             raise Exception(erro)
         return response.json()
     
