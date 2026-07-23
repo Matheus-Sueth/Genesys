@@ -2602,3 +2602,42 @@ class Genesys:
             raise Exception(erro)
         return response.json()
     
+    def post_authorization_subject_bulkadd(
+        self, subject_id: str, params: dict|None = None, body: dict|None = None
+    ) -> dict:
+        """
+        GET /api/v2/authorization/subjects/{subjectId}/bulkadd HTTP/1.1 \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+
+        Exemplos de params:
+        
+        params = 
+        {
+            "subjectType": what the type of the subject is (PC_GROUP, PC_USER or PC_OAUTH_CLIENT)
+        }
+
+        body = 
+        {
+            "grants": [
+                {
+                "roleId": "",
+                "divisionId": ""
+                }
+            ]
+        }
+
+        """
+        name_function = "post_authorization_subject_bulkadd"
+        response = requests.post(
+            url=f"{self.URL}/api/v2/authorization/subjects/{subject_id}/bulkadd",
+            params=params,
+            headers=self.auth_headers(),
+            json=body
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"{name_function}({subject_id=},{params=}, {body=}){content}"
+            raise Exception(erro)
+        return response.json()
+    
