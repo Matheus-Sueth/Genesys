@@ -2640,4 +2640,23 @@ class Genesys:
             erro = f"{name_function}({subject_id=},{params=}, {body=}){content}"
             raise Exception(erro)
         return response.json()
+
+    def get_analytics_conversations_details(self, list_conversation_id: list[str]) -> dict:
+        """
+        GET /api/v2/analytics/conversations/details \n
+        Authorization: Bearer ****************** \n
+        Content-Type: application/json
+        """
+        response = requests.get(
+            url=f'{self.URL}/api/v2/analytics/conversations/details', 
+            headers=self.auth_headers(),
+            params={
+                "id": ",".join(list_conversation_id)
+            }
+        )
+        if not response.ok:
+            content = f"\nContent: {response.content}\n"
+            erro = f"get_analytics_conversations_details({list_conversation_id=}){content}"
+            raise Exception(erro)
+        return response.json()
     
