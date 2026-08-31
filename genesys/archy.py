@@ -351,15 +351,27 @@ class Archy:
 
     def _auth_args(self, *, include_token_type: bool = False) -> tuple[list[str], str]:
         token, is_client_credentials = self._token_info()
-        args = ["--authToken", token]
-        if include_token_type:
+
+        args = [
+            "--authToken",
+            token,
+        ]
+
+        if include_token_type and is_client_credentials:
             args.extend(
                 [
                     "--authTokenIsClientCredentials",
-                    "true" if is_client_credentials else "false",
+                    "true",
                 ]
             )
-        args.extend(["--location", self.api.region.suffix])
+
+        args.extend(
+            [
+                "--location",
+                self.api.region.suffix,
+            ]
+        )
+
         return args, token
 
     @staticmethod
