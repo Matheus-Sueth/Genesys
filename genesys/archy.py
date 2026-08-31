@@ -490,11 +490,12 @@ class Archy:
         path = self._validate_flow_file(flow_file)
         parsed = FileYaml(str(path))
         job_id = self._new_job_id()
+        auth_args, token = self._auth_args(include_token_type=True)
 
         with tempfile.TemporaryDirectory(prefix=f"archy-{job_id}-") as temp_dir:
             output_host = Path(temp_dir)
             if self.runtime == ArchyRuntime.LOCAL:
-                extra = ["--outputDir", str(output_host), "--force"]
+                extra = ["--outputDir", str(output_host), "--force", *auth_args]
                 cmd, _, cwd = self._runtime_file_command(
                     operation="createImportFile",
                     host_file=path,
@@ -508,13 +509,13 @@ class Archy:
                     operation="createImportFile",
                     host_file=path,
                     job_id=job_id,
-                    extra_args=["--outputDir", container_output, "--force"],
+                    extra_args=["--outputDir", container_output, "--force", *auth_args],
                 )
                 # Montagem adicional precisa entrar antes da imagem/serviço.
                 insert_at = cmd.index("--entrypoint")
                 cmd[insert_at:insert_at] = ["-v", output_mount]
 
-            code, out, err, timed_out = self._run(cmd, cwd=cwd, timeout=timeout)
+            code, out, err, timed_out = self._run(cmd, cwd=cwd, timeout=timeout, secrets=[token])
 
         return ArchyCommandResult(
             ok=code == 0,
@@ -539,7 +540,7 @@ class Archy:
         path = self._validate_flow_file(flow_file)
         parsed = FileYaml(str(path))
         job_id = self._new_job_id()
-        auth_args, token = self._auth_args()
+        auth_args, token = self._auth_args(include_token_type=True)
         cmd, _, cwd = self._runtime_file_command(
             operation="create",
             host_file=path,
@@ -658,7 +659,7 @@ class Archy:
                     error_summary="Falha ao criar uma ou mais dependências placeholder.",
                 )
 
-        auth_args, token = self._auth_args()
+        auth_args, token = self._auth_args(include_token_type=True)
         cmd, _, cwd = self._runtime_file_command(
             operation="publish",
             host_file=path,
