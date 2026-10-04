@@ -23,6 +23,26 @@ class Task:
     outputPaths: Optional[dict] = None
 
 
+def _referenced_flow_dependencies(
+    referenced_objects: dict,
+) -> list[tuple[str, str]]:
+    """Extrai dependências de flow declaradas no bloco referencedObjects do Archy."""
+    dependencies = []
+    for referenced_flow in referenced_objects.get("flows", []):
+        flow = referenced_flow.get("flow", {})
+        name = flow.get("name")
+        flow_type = flow.get("type")
+        if not name or not flow_type:
+            continue
+        genesys_type = (
+            "commonModule"
+            if flow_type.lower() == "commonmodule"
+            else flow_type
+        )
+        dependencies.append((name, genesys_type))
+    return dependencies
+
+
 @dataclass
 class InboundCall:
     name: str
@@ -36,6 +56,7 @@ class InboundCall:
     settingsMenu: dict
     settingsPrompts: dict
     settingsSpeechRec: dict
+    referencedObjects: dict
     description: Optional[str] = field(default="")
     variables: Optional[dict] = None
     tasks: Optional[list[Task]] = None
@@ -227,7 +248,11 @@ class InboundCall:
             raise Exception(f"Ocorreu um erro: {erro}\nAction: {action}")
 
     def get_dependencies(self, type_action: str) -> list:
-        dados = []
+        dados = (
+            _referenced_flow_dependencies(self.referencedObjects)
+            if type_action == "flows"
+            else []
+        )
         if self.tasks is not None:
             for task in self.tasks:
                 if task.actions is not None:
@@ -276,6 +301,7 @@ class InboundShortMessage:
     defaultLanguage: str
     supportedLanguages: dict
     settingsErrorHandling: dict
+    referencedObjects: dict
     description: Optional[str] = field(default="")
     variables: Optional[dict] = None
     tasks: Optional[list[Task]] = None
@@ -468,7 +494,11 @@ class InboundShortMessage:
             raise Exception(f"Ocorreu um erro: {erro}\nAction: {action}")
         
     def get_dependencies(self, type_action: str) -> list:
-        dados = []
+        dados = (
+            _referenced_flow_dependencies(self.referencedObjects)
+            if type_action == "flows"
+            else []
+        )
         if self.tasks is not None:
             for task in self.tasks:
                 if task.actions is not None:

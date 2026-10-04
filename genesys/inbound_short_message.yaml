@@ -19,3 +19,5 @@ inboundShortMessage:
         actions:
           - disconnect:
               name: Disconnect
+  referencedObjects:
+    flows: []
