@@ -95,6 +95,18 @@ class FileYaml:
     def definir_flow(self):
         states, tasks = [], []
         self.flow_type = list(self.json_file.keys())[0]
+        if self.flow_type in {"inboundCall", "inboundShortMessage"}:
+            root = self.json_file[self.flow_type]
+            if "referencedObjects" not in root:
+                raise ValueError(
+                    "O YAML exportado pelo Archy precisa conter 'referencedObjects'. "
+                    "YAMLs do formato anterior não são suportados."
+                )
+            if not isinstance(root["referencedObjects"], dict):
+                raise ValueError(
+                    "O campo 'referencedObjects' precisa ser um objeto YAML."
+                )
+
         if self.flow_type == "inboundCall":
             if self.json_file[self.flow_type].get("tasks", False):
                 tasks = [
