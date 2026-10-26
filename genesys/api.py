@@ -1,4 +1,5 @@
 import requests
+from genesys.inventory_http import inventory_get
 import base64
 import os
 import time
@@ -2660,3 +2661,147 @@ class Genesys:
             raise Exception(erro)
         return response.json()
     
+
+    # Métodos de inventário: GET-only, compatíveis com PKCE e Client Credentials.
+    def _inventory_get(
+        self, path: str, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        return inventory_get(
+            self, path, params=params, all_pages=all_pages, max_pages=max_pages,
+            page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_organization(self, *, timeout: tuple[int, int] = (5, 30)) -> dict:
+        """GET /api/v2/organizations/me; retorna o payload original."""
+        return self._inventory_get("/api/v2/organizations/me", timeout=timeout)
+
+    def get_inventory_routing_settings(self, *, timeout: tuple[int, int] = (5, 30)) -> dict:
+        """GET /api/v2/routing/settings; retorna o payload original."""
+        return self._inventory_get("/api/v2/routing/settings", timeout=timeout)
+
+    def get_inventory_telephony_settings(self, *, timeout: tuple[int, int] = (5, 30)) -> dict:
+        """GET /api/v2/telephony/settings; retorna o payload original."""
+        return self._inventory_get("/api/v2/telephony/settings", timeout=timeout)
+
+    def get_inventory_users(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/users; all_pages=True retorna uma lista completa."""
+        return self._inventory_get(
+            "/api/v2/users", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_groups(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/groups; all_pages=True retorna uma lista completa."""
+        return self._inventory_get(
+            "/api/v2/groups", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_routing_skills(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/routing/skills; all_pages=True retorna uma lista completa."""
+        return self._inventory_get(
+            "/api/v2/routing/skills", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_routing_languages(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/routing/languages; all_pages=True retorna uma lista completa."""
+        return self._inventory_get(
+            "/api/v2/routing/languages", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_data_tables(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/flows/datatables; all_pages=True retorna uma lista completa."""
+        return self._inventory_get(
+            "/api/v2/flows/datatables", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_schedules(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/architect/schedules; all_pages=True retorna uma lista completa."""
+        return self._inventory_get(
+            "/api/v2/architect/schedules", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_schedule_groups(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/architect/schedulegroups; all_pages=True retorna uma lista completa."""
+        return self._inventory_get(
+            "/api/v2/architect/schedulegroups", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_emergency_groups(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/architect/emergencygroups; all_pages=True retorna uma lista completa."""
+        return self._inventory_get(
+            "/api/v2/architect/emergencygroups", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_integrations(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/integrations; all_pages=True retorna uma lista completa."""
+        return self._inventory_get(
+            "/api/v2/integrations", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_queue_division_views_all(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/routing/queues/divisionviews/all; all_pages=True retorna uma lista completa."""
+        return self._inventory_get(
+            "/api/v2/routing/queues/divisionviews/all", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_telephony_sites(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/telephony/providers/edges/sites; all_pages=True retorna uma lista completa."""
+        return self._inventory_get(
+            "/api/v2/telephony/providers/edges/sites", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )

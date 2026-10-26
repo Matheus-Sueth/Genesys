@@ -32,8 +32,12 @@ Para executar 100% offline, gere o catálogo a partir de um Swagger salvo previa
 
 A classificação de inventário é **heurística**; requer revisão humana dos filtros, recursos de divisões, paginação, permissões e custos/rate limits. Uma operação GET não é necessariamente adequada a varredura massiva; alguns POSTs são apenas consultas analíticas.
 
-A primeira versão analisa somente a classe `Genesys` do arquivo fornecido, chamadas diretas `requests.*`, strings literais, f-strings com bases conhecidas e aliases simples. Clientes dinâmicos, chamadas em outras classes, HTTP sessions, expressões compostas, roteamento condicional e caminhos dinâmicos desconhecidos não são declarados implementados.
+A primeira versão analisa somente a classe `Genesys` do arquivo fornecido, chamadas diretas `requests.*` e wrappers explícitos `self._inventory_get('/api/v2/...')`, strings literais, f-strings com bases conhecidas e aliases simples. Clientes dinâmicos, chamadas em outras classes, HTTP sessions, expressões compostas, roteamento condicional e caminhos dinâmicos desconhecidos não são declarados implementados.
 
 **Não são adicionadas GitHub Actions nem feitas chamadas a organizações.** Os relatórios são gerados sob demanda, não publicam segredos e não alteram `genesys/api.py`.
 
 Referência: https://developer.genesys.cloud/devapps/api-explorer
+
+## Onda 1 de inventário
+
+O analisador reconhece chamadas literais a `self._inventory_get` como GET para determinar correspondências estáticas na classe `Genesys`. Trata-se apenas de cobertura de código, não de validação de autorização nem de integração com uma ORG. Consulte [Inventário Onda 1](inventory_wave1.md).

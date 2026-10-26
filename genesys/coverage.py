@@ -83,6 +83,11 @@ def _normalize(path: str) -> str | None:
 
 def _request_method(call: ast.Call) -> str | None:
     func = call.func
+    if (isinstance(func, ast.Attribute)
+        and func.attr == "_inventory_get"
+        and isinstance(func.value, ast.Name)
+        and func.value.id == "self"):
+        return "GET"
     if not isinstance(func, ast.Attribute) or func.attr.lower() not in _METHODS:
         return None
     if isinstance(func.value, ast.Name) and func.value.id == "requests":
