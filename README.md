@@ -9,6 +9,7 @@ O projeto Genesys é uma ferramenta para gerenciar aplicação do Archy e as API
 - Atualizar as informações das URAs e BOTS
 - Excluir URAs e BOTS não mais necessários
 - Consumo das APIs do Genesys Cloud.
+- Catálogo consultável das operações Genesys Cloud baseado no Swagger oficial (consulte [a documentação](docs/api_catalog.md)).
 
 ## Requisitos
 É necessário ter o Python 3.12+, Python 3.11 não pode ser usado ou versões anteriores e Docker instalado na máquina.
