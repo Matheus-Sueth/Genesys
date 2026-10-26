@@ -1,9 +1,10 @@
 # Genesys
 
 ## Descrição
-O projeto Genesys é uma ferramenta para gerenciar aplicação do Archy e as APIs do Genesys Cloud. Fornece uma interface para gerenciar eficientemente esses recursos diretamente no Genesys Cloud e no banco de dados local.
+Genesys é uma biblioteca Python para consumir **toda a Genesys Cloud Platform API** a partir da especificação oficial Swagger/OpenAPI, além de fornecer métodos especializados para APIs frequentes e recursos de Archy. O inventário de organizações é apenas um caso de uso da biblioteca.
 
 ## Funcionalidades
+- Cliente universal declarativo para todas as operações GET, POST, PUT, PATCH e DELETE catalogadas, com autorização explícita para escrita ([arquitetura e limitações](docs/platform_api_architecture.md)).
 - Criar novas URAs e BOTS
 - Ler informações existentes de URAs e BOTS
 - Atualizar as informações das URAs e BOTS
