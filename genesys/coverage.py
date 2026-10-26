@@ -84,7 +84,7 @@ def _normalize(path: str) -> str | None:
 def _request_method(call: ast.Call) -> str | None:
     func = call.func
     if (isinstance(func, ast.Attribute)
-        and func.attr == "_inventory_get"
+        and func.attr in {"_inventory_get", "_inventory_get_wave2"}
         and isinstance(func.value, ast.Name)
         and func.value.id == "self"):
         return "GET"

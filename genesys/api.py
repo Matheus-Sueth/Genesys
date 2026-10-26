@@ -1,5 +1,6 @@
 import requests
 from genesys.inventory_http import inventory_get
+from genesys.inventory_wave2 import inventory_get_wave2
 import base64
 import os
 import time
@@ -2803,5 +2804,186 @@ class Genesys:
         """GET /api/v2/telephony/providers/edges/sites; all_pages=True retorna uma lista completa."""
         return self._inventory_get(
             "/api/v2/telephony/providers/edges/sites", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+
+    # Onda 2: inventário e governança, somente GET.
+    def _inventory_get_wave2(
+        self, path: str, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        return inventory_get_wave2(
+            self, path, params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_skill_groups(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/routing/skillgroups; modo de paginação: cursor."""
+        return self._inventory_get_wave2(
+            "/api/v2/routing/skillgroups", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_email_domains(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/routing/email/domains; modo de paginação: page_number."""
+        return self._inventory_get_wave2(
+            "/api/v2/routing/email/domains", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_sms_phone_numbers(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/routing/sms/phonenumbers; modo de paginação: page_number."""
+        return self._inventory_get_wave2(
+            "/api/v2/routing/sms/phonenumbers", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_telephony_edge_groups(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/telephony/providers/edges/edgegroups; modo de paginação: page_number."""
+        return self._inventory_get_wave2(
+            "/api/v2/telephony/providers/edges/edgegroups", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_telephony_outbound_routes(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/telephony/providers/edges/outboundroutes; modo de paginação: page_number."""
+        return self._inventory_get_wave2(
+            "/api/v2/telephony/providers/edges/outboundroutes", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_telephony_did_pools(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/telephony/providers/edges/didpools; modo de paginação: page_number."""
+        return self._inventory_get_wave2(
+            "/api/v2/telephony/providers/edges/didpools", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_telephony_dids(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/telephony/providers/edges/dids; modo de paginação: page_number."""
+        return self._inventory_get_wave2(
+            "/api/v2/telephony/providers/edges/dids", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_oauth_clients(self, *, timeout: tuple[int, int] = (5, 30)) -> dict:
+        """GET /api/v2/oauth/clients; campos OAuth sensíveis são mascarados."""
+        return self._inventory_get_wave2("/api/v2/oauth/clients", timeout=timeout)
+
+    def get_inventory_authorization_permissions(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/authorization/permissions; modo de paginação: page_number."""
+        return self._inventory_get_wave2(
+            "/api/v2/authorization/permissions", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_media_retention_policies(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/recording/mediaretentionpolicies; modo de paginação: page_number."""
+        return self._inventory_get_wave2(
+            "/api/v2/recording/mediaretentionpolicies", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_outbound_campaigns(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/outbound/campaigns; modo de paginação: page_number."""
+        return self._inventory_get_wave2(
+            "/api/v2/outbound/campaigns", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_web_deployments(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/webdeployments/deployments; modo de paginação: cursor."""
+        return self._inventory_get_wave2(
+            "/api/v2/webdeployments/deployments", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_quality_evaluation_forms(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/quality/forms/evaluations; modo de paginação: page_number."""
+        return self._inventory_get_wave2(
+            "/api/v2/quality/forms/evaluations", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_knowledge_bases(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/knowledge/knowledgebases; modo de paginação: cursor."""
+        return self._inventory_get_wave2(
+            "/api/v2/knowledge/knowledgebases", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_flow_milestones(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/flows/milestones; modo de paginação: page_number."""
+        return self._inventory_get_wave2(
+            "/api/v2/flows/milestones", params=params, all_pages=all_pages,
+            max_pages=max_pages, page_size=page_size, timeout=timeout,
+        )
+
+    def get_inventory_flow_outcomes(
+        self, *, params: dict | None = None, all_pages: bool = False,
+        max_pages: int = 25, page_size: int = 100,
+        timeout: tuple[int, int] = (5, 30),
+    ) -> dict | list:
+        """GET /api/v2/flows/outcomes; modo de paginação: page_number."""
+        return self._inventory_get_wave2(
+            "/api/v2/flows/outcomes", params=params, all_pages=all_pages,
             max_pages=max_pages, page_size=page_size, timeout=timeout,
         )

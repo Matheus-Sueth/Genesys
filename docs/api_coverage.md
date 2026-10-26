@@ -41,3 +41,7 @@ Referência: https://developer.genesys.cloud/devapps/api-explorer
 ## Onda 1 de inventário
 
 O analisador reconhece chamadas literais a `self._inventory_get` como GET para determinar correspondências estáticas na classe `Genesys`. Trata-se apenas de cobertura de código, não de validação de autorização nem de integração com uma ORG. Consulte [Inventário Onda 1](inventory_wave1.md).
+
+## Onda 2
+
+A auditoria reconhece chamadas literais `self._inventory_get_wave2('/api/v2/...')` como GET, preservando os 14 wrappers da Onda 1. Consulte [Inventário Onda 2](inventory_wave2.md). A correspondência é estática e não comprova permissões ou funcionamento na ORG.
