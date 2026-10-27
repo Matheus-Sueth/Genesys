@@ -192,6 +192,13 @@ class PkceTokenProvider(TokenProvider):
         return info
     
 
+class GenesysMcpCatalogError(RuntimeError):
+    """Erro sanitizado de catálogo MCP, sem resposta HTTP ou tokens."""
+    def __init__(self, status_code: int = 502):
+        super().__init__("Consulta ao catálogo Genesys indisponível.")
+        self.status_code = status_code
+
+
 class Genesys:
     def __init__(self, token_provider: TokenProvider) -> None:
         self.region = token_provider.get_region()
@@ -12601,4 +12608,116 @@ class Genesys:
 
     def get_workforcemanagement_workplanbid_workplans(self, bid_id, params=None, **kwargs):
         return self._request_platform_api('GET', f"/api/v2/workforcemanagement/workplanbids/{quote(str(bid_id), safe='')}/workplans", params=params, **kwargs)
+
+    # ---------------------------------------------------------
+    # CXForge MCP - API de catálogo somente leitura (allowlist)
+    # ---------------------------------------------------------
+    def _mcp_catalog_get(self, path: str, *, params: dict | None = None) -> dict:
+        """GET restrito; jamais retorna ao caller corpo de resposta em erros."""
+        from urllib.parse import urlsplit
+        allowed = (
+            path in {"/api/v2/routing/queues", "/api/v2/routing/skills",
+                     "/api/v2/flows/datatables/divisionviews", "/api/v2/integrations/actions"}
+            or re.fullmatch(
+                r"/api/v2/(?:routing/(?:queues|skills)|flows/datatables|integrations/actions)/"
+                r"(?:[0-9a-fA-F-]{36}|static_[0-9a-fA-F-]{36})",
+                path,
+            ) is not None
+            or re.fullmatch(
+                r"/api/v2/integrations/actions/(?:[0-9a-fA-F-]{36}|static_[0-9a-fA-F-]{36})"
+                r"/schemas/[A-Za-z0-9_-]{1,100}",
+                path,
+            ) is not None
+        )
+        if not allowed or "?" in path or "#" in path or "\\" in path:
+            raise ValueError("Rota MCP não permitida.")
+        try:
+            response = requests.get(
+                url=self.URL + path,
+                headers=self.auth_headers(),
+                params=params,
+                timeout=10,
+                allow_redirects=False,
+            )
+        except requests.exceptions.Timeout:
+            raise GenesysMcpCatalogError(504) from None
+        except requests.exceptions.RequestException:
+            raise GenesysMcpCatalogError(502) from None
+        if response.status_code in {401, 403, 404, 429, 503, 504}:
+            raise GenesysMcpCatalogError(response.status_code)
+        if not response.ok or response.is_redirect or len(response.content) > 262144:
+            raise GenesysMcpCatalogError(502)
+        try:
+            body = response.json()
+        except ValueError:
+            raise GenesysMcpCatalogError(502) from None
+        if not isinstance(body, dict):
+            raise GenesysMcpCatalogError(502)
+        return body
+
+    def get_mcp_catalog_page(
+        self, resource: str, *, page_number: int = 1, page_size: int = 25,
+        name: str | None = None,
+    ) -> dict:
+        """Consulta listagem com recursos aprovados e paginação limitada."""
+        paths = {
+            "queue": "/api/v2/routing/queues",
+            "skill": "/api/v2/routing/skills",
+            "data_table": "/api/v2/flows/datatables/divisionviews",
+            "data_action": "/api/v2/integrations/actions",
+        }
+        if resource not in paths or not isinstance(page_number, int) or isinstance(page_number, bool) or not 1 <= page_number <= 10000:
+            raise ValueError("Recurso/página MCP inválido.")
+        if not isinstance(page_size, int) or isinstance(page_size, bool) or not 1 <= page_size <= 50:
+            raise ValueError("Tamanho de página MCP inválido.")
+        if name is not None and (not isinstance(name, str) or not 1 <= len(name) <= 200):
+            raise ValueError("Nome MCP inválido.")
+        params = {"pageNumber": page_number, "pageSize": page_size}
+        if name is not None:
+            params["name"] = name
+        return self._mcp_catalog_get(paths[resource], params=params)
+
+    def get_mcp_catalog_detail(
+        self, resource: str, resource_id: str, *, expand_schema: bool = False,
+    ) -> dict:
+        """Detalhe por UUID; schema só é permitido para uma Data Table."""
+        from uuid import UUID
+        paths = {
+            "queue": "/api/v2/routing/queues",
+            "skill": "/api/v2/routing/skills",
+            "data_table": "/api/v2/flows/datatables",
+            "data_action": "/api/v2/integrations/actions",
+        }
+        if resource not in paths or not isinstance(resource_id, str):
+            raise ValueError("Recurso/ID MCP inválido.")
+        if expand_schema and resource != "data_table":
+            raise ValueError("Schema MCP não permitido para este recurso.")
+        prefix = "static_" if resource == "data_action" and resource_id.startswith("static_") else ""
+        try:
+            normalized = prefix + str(UUID(resource_id[len(prefix):]))
+        except (ValueError, TypeError):
+            raise ValueError("UUID MCP inválido.") from None
+        return self._mcp_catalog_get(
+            paths[resource] + "/" + normalized,
+            params={"expand": "schema"} if expand_schema else None,
+        )
+
+    def get_mcp_action_schema(self, action_id: str, schema_uri: str) -> dict:
+        """Somente /actions/{id}/schemas/{id}; referência não escolhe host nem path."""
+        from uuid import UUID
+        from urllib.parse import urlsplit
+        if not isinstance(action_id, str) or not isinstance(schema_uri, str):
+            raise ValueError("Identificador de schema inválido.")
+        prefix = "static_" if action_id.startswith("static_") else ""
+        try:
+            normalized = prefix + str(UUID(action_id[len(prefix):]))
+        except (TypeError, ValueError):
+            raise ValueError("ID de ação inválido.") from None
+        expected = "/api/v2/integrations/actions/" + normalized + "/schemas/"
+        if (
+            not schema_uri.startswith(expected)
+            or not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", schema_uri[len(expected):])
+        ):
+            raise ValueError("Referência de schema fora da ação permitida.")
+        return self._mcp_catalog_get(schema_uri)
 
