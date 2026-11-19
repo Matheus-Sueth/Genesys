@@ -83,6 +83,16 @@ class McpActionIdentifierCompatibilityTests(unittest.TestCase):
                         self.api.get_mcp_action_schema(action_id, foreign_uri)
                     self.assertEqual(get.call_count, 1)
 
+    def test_published_json_schema_filenames_are_allowlisted(self):
+        for action_id in _IDS:
+            for filename in ("inputschema.json", "successschema.json", "errorschema.json"):
+                uri = "/api/v2/integrations/actions/" + action_id + "/schemas/" + filename
+                with self.subTest(action_id=action_id, filename=filename):
+                    with patch("genesys.api.requests.get", return_value=_response({"type": "object"})) as get:
+                        schema = self.api.get_mcp_action_schema(action_id, uri)
+                    self.assertEqual(schema["type"], "object")
+                    self.assertEqual(get.call_args.kwargs["url"], "https://api.mypurecloud.com" + uri)
+
     def test_malicious_or_invalid_action_ids_never_open_remote_requests(self):
         invalid = (
             "custom_" + _UUID, "custom_-_" + "f" * 36,
@@ -112,6 +122,10 @@ class McpActionIdentifierCompatibilityTests(unittest.TestCase):
         invalid = (
             base + "/schemas/../secret", base + "/schemas/input?token=1",
             base + "/schemas/input#fragment", base + "/execute",
+            base + "/schemas/inputschema.json?token=1",
+            base + "/schemas/inputschema..json",
+            base + "/schemas/inputschema.txt",
+            base + "/schemas/inputschema.json/../other",
             base + "/draft", base + "/schemas/", base + "/schemas/%2e%2e",
         )
         with patch("genesys.api.requests.get") as get:
