@@ -37,7 +37,9 @@ def _response(body):
 
 class McpActionIdentifierCompatibilityTests(unittest.TestCase):
     def setUp(self):
-        self.api = Genesys(_TokenProvider())
+        # Genesys consulta /tokens/me no construtor; testes nunca usam rede real.
+        with patch.object(Genesys, "get_information_token", return_value={}):
+            self.api = Genesys(_TokenProvider())
 
     def test_normalization_preserves_full_id_and_only_lowercases_uuid(self):
         for action_id in _IDS:
