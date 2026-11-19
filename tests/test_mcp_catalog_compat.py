@@ -18,7 +18,9 @@ class _TokenProvider:
 
 class McpCatalogCompatibilityTests(unittest.TestCase):
     def setUp(self):
-        self.api = Genesys(_TokenProvider())
+        # Genesys consulta /tokens/me no construtor; testes nunca usam rede real.
+        with patch.object(Genesys, "get_information_token", return_value={}):
+            self.api = Genesys(_TokenProvider())
 
     def test_legacy_methods_remain_available(self):
         for method in ("get_mcp_catalog_page", "get_mcp_catalog_detail", "get_mcp_action_schema"):
