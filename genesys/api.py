@@ -1,6 +1,7 @@
 import requests
 from urllib.parse import quote
 from genesys.platform_api import PlatformAPIClient
+from genesys.mcp_action_identifiers import ACTION_ID_SEGMENT_PATTERN, normalize_mcp_action_id
 from genesys.inventory_http import inventory_get
 from genesys.inventory_wave2 import inventory_get_wave2
 import base64
@@ -12614,18 +12615,19 @@ class Genesys:
     # ---------------------------------------------------------
     def _mcp_catalog_get(self, path: str, *, params: dict | None = None) -> dict:
         """GET restrito; jamais retorna ao caller corpo de resposta em erros."""
-        from urllib.parse import urlsplit
+        # Aceita somente rotas GET conhecidas e IDs literais da API Genesys.
+        # Regex do mesmo módulo usado pela validação do detalhe e schema.
         allowed = (
             path in {"/api/v2/routing/queues", "/api/v2/routing/skills",
                      "/api/v2/flows/datatables/divisionviews", "/api/v2/integrations/actions"}
             or re.fullmatch(
-                r"/api/v2/(?:routing/(?:queues|skills)|flows/datatables|integrations/actions)/"
-                r"(?:[0-9a-fA-F-]{36}|static_[0-9a-fA-F-]{36})",
+                r"/api/v2/(?:routing/(?:queues|skills)|flows/datatables)/"
+                r"[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}",
                 path,
             ) is not None
             or re.fullmatch(
-                r"/api/v2/integrations/actions/(?:[0-9a-fA-F-]{36}|static_[0-9a-fA-F-]{36})"
-                r"/schemas/[A-Za-z0-9_-]{1,100}",
+                r"/api/v2/integrations/actions/" + ACTION_ID_SEGMENT_PATTERN
+                + r"(?:/schemas/[A-Za-z0-9_-]{1,100})?",
                 path,
             ) is not None
         )
@@ -12692,11 +12694,15 @@ class Genesys:
             raise ValueError("Recurso/ID MCP inválido.")
         if expand_schema and resource != "data_table":
             raise ValueError("Schema MCP não permitido para este recurso.")
-        prefix = "static_" if resource == "data_action" and resource_id.startswith("static_") else ""
-        try:
-            normalized = prefix + str(UUID(resource_id[len(prefix):]))
-        except (ValueError, TypeError):
-            raise ValueError("UUID MCP inválido.") from None
+        if resource == "data_action":
+            # Não descartar custom_-_ nem o slug de ações estáticas: ambos
+            # pertencem ao identificador literal retornado na listagem.
+            normalized = normalize_mcp_action_id(resource_id)
+        else:
+            try:
+                normalized = str(UUID(resource_id))
+            except (ValueError, TypeError):
+                raise ValueError("UUID MCP inválido.") from None
         return self._mcp_catalog_get(
             paths[resource] + "/" + normalized,
             params={"expand": "schema"} if expand_schema else None,
@@ -12704,15 +12710,9 @@ class Genesys:
 
     def get_mcp_action_schema(self, action_id: str, schema_uri: str) -> dict:
         """Somente /actions/{id}/schemas/{id}; referência não escolhe host nem path."""
-        from uuid import UUID
-        from urllib.parse import urlsplit
-        if not isinstance(action_id, str) or not isinstance(schema_uri, str):
+        if not isinstance(schema_uri, str):
             raise ValueError("Identificador de schema inválido.")
-        prefix = "static_" if action_id.startswith("static_") else ""
-        try:
-            normalized = prefix + str(UUID(action_id[len(prefix):]))
-        except (TypeError, ValueError):
-            raise ValueError("ID de ação inválido.") from None
+        normalized = normalize_mcp_action_id(action_id)
         expected = "/api/v2/integrations/actions/" + normalized + "/schemas/"
         if (
             not schema_uri.startswith(expected)
