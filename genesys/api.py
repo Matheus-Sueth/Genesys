@@ -12627,7 +12627,7 @@ class Genesys:
             ) is not None
             or re.fullmatch(
                 r"/api/v2/integrations/actions/" + ACTION_ID_SEGMENT_PATTERN
-                + r"(?:/schemas/[A-Za-z0-9_-]{1,100})?",
+                + r"(?:/schemas/[A-Za-z0-9_-]{1,100}(?:\.json)?)?",
                 path,
             ) is not None
         )
@@ -12716,7 +12716,7 @@ class Genesys:
         expected = "/api/v2/integrations/actions/" + normalized + "/schemas/"
         if (
             not schema_uri.startswith(expected)
-            or not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", schema_uri[len(expected):])
+            or not re.fullmatch(r"[A-Za-z0-9_-]{1,100}(?:\.json)?", schema_uri[len(expected):])
         ):
             raise ValueError("Referência de schema fora da ação permitida.")
         return self._mcp_catalog_get(schema_uri)
